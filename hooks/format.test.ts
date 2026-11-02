@@ -9,6 +9,8 @@ import {
   ramp,
   resetAt,
   ring,
+  settled,
+  sharedQuota,
   timeLeft,
   totalK,
   usedK,
@@ -41,6 +43,23 @@ test('credit spend is the cost since overage began', async () => {
   const over = { ...base, q5: 100, usd: 3.5, overageBase: 3 }
   expect(creditUsd(over)).toBe(0.5)
   expect(plain(over, NOW).endsWith('~$3.50 💰$0.50')).toBe(true)
+})
+
+test('a window past its reset is empty, and takes its overage with it', async () => {
+  const past = { ...base, q5: 100, q7: 15, r5: NOW - 1, r7: NOW + HOUR, overageBase: 3 }
+  expect(settled(past, NOW)).toEqual({ ...past, q5: 0, r5: null, overageBase: null })
+  expect(settled({ ...past, r5: NOW + 1 }, NOW)).toEqual({ ...past, r5: NOW + 1 })
+  expect(settled({ ...base, q5: null, q7: 100, r5: NOW - 1, overageBase: 3 }, NOW).q5).toBe(null)
+  expect(settled({ ...base, q5: null, q7: 100, r5: NOW - 1, overageBase: 3 }, NOW).overageBase).toBe(3)
+})
+
+test('a shared reading is checked before it is trusted', async () => {
+  const reading = { q5: 10, q7: null, r5: NOW, r7: null, at: NOW }
+  expect(sharedQuota(reading)).toEqual(reading)
+  expect(sharedQuota(undefined)).toBe(null)
+  expect(sharedQuota('junk')).toBe(null)
+  expect(sharedQuota({ ...reading, q5: '10' })).toBe(null)
+  expect(sharedQuota({ ...reading, at: undefined })).toBe(null)
 })
 
 test('the ring reads to the nearest quarter', async () => {

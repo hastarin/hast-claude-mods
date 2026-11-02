@@ -1,4 +1,4 @@
-import type { Snapshot } from '../types'
+import type { SharedQuota, Snapshot } from '../types'
 
 export const BAR_CELLS = 20
 const MIN_BAR_CELLS = 8
@@ -101,6 +101,32 @@ export const totalK = (n: number): string =>
 
 export const isOverage = (s: Pick<Snapshot, 'q5' | 'q7'>): boolean =>
   (s.q5 ?? 0) >= 100 || (s.q7 ?? 0) >= 100
+
+/** The figures as they stand at `now`: a window past its reset has nothing used. */
+export const settled = (s: Snapshot, now: number): Snapshot => {
+  const lapsed = (resetsAt: number | null): boolean => resetsAt !== null && resetsAt <= now
+  const q5 = s.q5 !== null && lapsed(s.r5) ? 0 : s.q5
+  const q7 = s.q7 !== null && lapsed(s.r7) ? 0 : s.q7
+
+  return {
+    ...s,
+    q5,
+    q7,
+    r5: lapsed(s.r5) ? null : s.r5,
+    r7: lapsed(s.r7) ? null : s.r7,
+    overageBase: isOverage({ q5, q7 }) ? s.overageBase : null,
+  }
+}
+
+/** The store's reading if it has the right shape; null for anything else. */
+export const sharedQuota = (value: unknown): SharedQuota | null => {
+  if (typeof value !== 'object' || value === null) return null
+  const { q5, q7, r5, r7, at } = value as Record<string, unknown>
+  const isFigure = (v: unknown): v is number | null => v === null || typeof v === 'number'
+  const isWhole = isFigure(q5) && isFigure(q7) && isFigure(r5) && isFigure(r7) && typeof at === 'number'
+
+  return isWhole ? { q5, q7, r5, r7, at } : null
+}
 
 /** Cost charged to credits: what the session has cost since quota ran out. */
 export const creditUsd = (s: Snapshot): number | null =>

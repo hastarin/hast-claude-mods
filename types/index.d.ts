@@ -12,6 +12,14 @@ export type Snapshot = {
   overageBase: number | null
 }
 
+export type Quota = Pick<Snapshot, 'q5' | 'q7' | 'r5' | 'r7'>
+
+/** The newest quota reading a session has had, left in the store for the others. */
+export type SharedQuota = Quota & {
+  /** When the response that carried it came back, epoch ms. */
+  at: number
+}
+
 export type Ttl = '5m' | '1h'
 
 export type CacheClock = {
@@ -34,6 +42,8 @@ declare module 'claude-code' {
   interface PluginState {
     'usage-bar': {
       snapshot: Snapshot | null
+      /** When the quota in the snapshot was read; 0 until a reply has read one. */
+      quotaAt: number
       cache: CacheClock | null
       git: GitState | null
       effort: string | null

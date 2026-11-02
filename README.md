@@ -62,6 +62,11 @@ The band redraws by itself only when something it shows changes, so an idle sess
 Context, quota and cost update after each response, including partway through a turn.
 A compaction shows its new size straight away, or 0 if the engine did not record one, and `/clear` shows 0.
 
+Quota readings come with responses, so each session leaves its newest in the mod's store, and the others pick it up within about 10 seconds.
+That covers sessions on the same computer, once each has had a reading of its own.
+Use on another computer or on claude.ai shows after your next reply.
+A window whose reset has passed reads 0% straight away.
+
 When the line is too long for the space, the context bar shrinks to as few as 8 cells, then gives way to a single ring (`○◔◑◕●`) before the line wraps.
 
 Git runs in the background, after each reply and about once a minute when idle, and the band draws its last result.

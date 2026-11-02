@@ -22,10 +22,20 @@ const measurement = {
 const STATUS = '# branch.oid 0123456789\n# branch.head main\n? new.ts\n'
 const usage = { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 90_000, cache_creation_input_tokens: 0 }
 
+// The plugin's store, which every session of the install shares.
+const store = new Map<string, unknown>()
+
 /** The engine's side of everything the mod asks for, with a clock the test moves. */
 const world = (on: On) => {
   const clock = mock.clock(on, { now: NOW })
   mock.env(on, {})
+  store.clear()
+  on('store.get', (_$, e) => ({ value: store.get(e.key) }) as never)
+  on('store.set', (_$, e) => {
+    store.set(e.key, e.value)
+
+    return { value: undefined } as never
+  })
   const calls: string[][] = []
   const figures = { now: measurement, after: undefined as number | undefined }
   on('session.start', (_$, e) => ({ ...e }) as never)
@@ -209,6 +219,111 @@ test('a compaction clears the countdown until the next reply', async ($, on) => 
   expect(await ui.find({ text: /C \(\d+m\)/})).toBeUndefined()
   await step($)
   expect(await ui.find({ type: 'Text', text: /^C \(60m\)$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+// What another session of the same install leaves in the store.
+const shared = (at: number) => ({ q5: 80, q7: 30, r5: NOW + HOUR, r7: NOW + 72 * HOUR, at })
+
+test('each reply leaves its quota reading for other sessions', async ($, on) => {
+  world(on)
+  await started($)
+  await step($)
+
+  expect(store.get('quota')).toEqual({
+    q5: 56,
+    q7: 25,
+    r5: NOW + 2 * HOUR,
+    r7: null,
+    at: NOW,
+  })
+})
+
+test('a newer reading from another session shows without a reply', async ($, on) => {
+  const { clock } = world(on)
+  await started($)
+  await step($)
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  store.set('quota',shared(NOW + MIN))
+  await clock.advance(11_000)
+  expect(await ui.find({ text: /5h 80% \(1h\)/ })).toBeDefined()
+  expect(await ui.find({ text: /7d 30% \(3d\)/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('an older reading from another session changes nothing', async ($, on) => {
+  const { clock } = world(on)
+  await started($)
+  await step($)
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  store.set('quota',shared(NOW - MIN))
+  await clock.advance(11_000)
+  expect(await ui.find({ text: /5h 56%/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a measurement of this session does not undo a shared reading, and the next reply does', async ($, on) => {
+  const { clock } = world(on)
+  await started($)
+  await step($)
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  store.set('quota',shared(NOW + MIN))
+  await clock.advance(11_000)
+  await $.session.measure({ ...(measurement as object), changed: ['cost'] } as never)
+  expect(await ui.find({ text: /5h 80%/ })).toBeDefined()
+
+  await step($)
+  expect(await ui.find({ text: /5h 56%/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('/usage-bar prints the newest reading', async ($, on) => {
+  world(on)
+  await started($)
+  await step($)
+  store.set('quota',shared(NOW + MIN))
+
+  const { text } = (await $.command.run({ command: 'usage-bar' } as never)) as { text: string }
+  expect(text).toContain('5h 80% (1h)')
+})
+
+test('a session with no quota of its own never takes one from the store', async ($, on) => {
+  const { clock, figures } = world(on)
+  figures.now = { ...(measurement as object), rateLimits: [] } as never
+  await started($)
+  await step($)
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  store.set('quota',shared(NOW + MIN))
+  await clock.advance(11_000)
+  expect(await ui.find({ text: /5h/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('a store holding something else is ignored', async ($, on) => {
+  const { clock } = world(on)
+  await started($)
+  await step($)
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  store.set('quota',{ q5: 'lots', at: NOW + MIN })
+  await clock.advance(11_000)
+  expect(await ui.find({ text: /5h 56%/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a window reads as empty once its reset has passed', async ($, on) => {
+  const { clock } = world(on)
+  await started($)
+  await step($)
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  await clock.advance(2 * HOUR + MIN)
+  expect(await ui.find({ text: /5h 0%$/ })).toBeDefined()
+  expect(await ui.find({ text: /7d 25%/ })).toBeDefined()
   await ui.unmount()
 })
 
