@@ -27,10 +27,11 @@ const world = (on: On) => {
   const clock = mock.clock(on, { now: NOW })
   mock.env(on, {})
   const calls: string[][] = []
-  const figures = { now: measurement }
+  const figures = { now: measurement, after: undefined as number | undefined }
   on('session.start', (_$, e) => ({ ...e }) as never)
+  on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
-  on('session.compact', (_$, e) => ({ messages: e.messages }) as never)
+  on('session.compact', (_$, e) => ({ messages: e.messages, tokensAfter: figures.after }) as never)
   on('command.register', () => ({ value: undefined }) as never)
   on('settings.read', () => ({ value: {} }) as never)
   on('session.usage', () => ({ value: figures.now }) as never)
@@ -208,6 +209,65 @@ test('a compaction clears the countdown until the next reply', async ($, on) => 
   expect(await ui.find({ text: /C \(\d+m\)/})).toBeUndefined()
   await step($)
   expect(await ui.find({ type: 'Text', text: /^C \(60m\)$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+const compact = { trigger: 'manual', messages: [{ role: 'assistant', text: 'hi', toolUses: [] }] } as never
+// The engine has no context reading from a compaction until the next response.
+const unread = { ...(measurement as object), context: { window: 1_000_000 } } as never
+
+test('a compaction shows the size it left, without waiting for the next reply', async ($, on) => {
+  const { figures } = world(on)
+  await started($)
+  await step($)
+  figures.after = 30_000
+  figures.now = unread
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  await $.session.compact(compact)
+  expect(await ui.find({ text: /30k \/ 1M/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^3%$/ })).toBeDefined()
+
+  await $.session.measure({ ...(unread as object), changed: ['cost'] } as never)
+  expect(await ui.find({ text: /30k \/ 1M/ })).toBeDefined()
+
+  figures.now = { ...(measurement as object), context: { tokens: 40_000, window: 1_000_000, percent: 4 } } as never
+  await step($)
+  expect(await ui.find({ text: /40k \/ 1M/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a compaction with no recorded size reads as empty', async ($, on) => {
+  const { figures } = world(on)
+  await started($)
+  await step($)
+  figures.now = unread
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  await $.session.compact(compact)
+  expect(await ui.find({ type: 'Text', text: /^0%$/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('a precomputed compaction leaves the figures, as nothing has shrunk yet', async ($, on) => {
+  world(on)
+  await started($)
+  await step($)
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  await $.session.compact({ ...(compact as object), trigger: 'precompute' } as never)
+  expect(await ui.find({ text: /54k \/ 1M/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('/clear empties the context straight away', async ($, on) => {
+  world(on)
+  await started($)
+  await step($)
+
+  const ui = await $.ui.mount(mountAt('terminal'))
+  await $.session.end({ reason: 'clear', sessionId: 's', resume: { id: 's' } } as never)
+  expect(await ui.find({ type: 'Text', text: /^0%$/ })).toBeDefined()
   await ui.unmount()
 })
 

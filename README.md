@@ -60,6 +60,7 @@ Settings are stored per install, so each computer keeps its own.
 The band redraws by itself only when something it shows changes, so an idle session does no drawing between changes.
 
 Context, quota and cost update after each response, including partway through a turn.
+A compaction shows its new size straight away, or 0 if the engine did not record one, and `/clear` shows 0.
 
 When the line is too long for the space, the context bar shrinks to as few as 8 cells, then gives way to a single ring (`○◔◑◕●`) before the line wraps.
 

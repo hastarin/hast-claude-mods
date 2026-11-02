@@ -47,28 +47,34 @@ let gitBusy = false
 let gitAt = 0
 let named: { cwd: string; repo: string } | null = null
 
+const percentOf = (tokens: number, window: number): number => (window > 0 ? (tokens * 100) / window : 0)
+
 const refresh = async ($: EngineInterface, figures?: Figures): Promise<Snapshot | null> => {
   const { context, rateLimits, cost } = figures ?? (await $.session.usage())
   const limit = (kind: string) => rateLimits.find(r => r.kind === kind)?.percentUsed ?? null
   const resets = (kind: string) => resetAt(rateLimits.find(r => r.kind === kind)?.resetsAt)
-  const tokens = context.tokens ?? 0
   const usd = cost?.usd ?? 0
   const q5 = limit('five_hour')
   const q7 = limit('seven_day')
 
-  await update($, snapshot, (prev: Snapshot | null): Snapshot => ({
-    tokens,
-    window: context.window,
-    percent: context.percent ?? (context.window > 0 ? (tokens * 100) / context.window : 0),
-    q5,
-    q7,
-    r5: resets('five_hour'),
-    r7: resets('seven_day'),
-    usd,
-    // Cost does not split plan-covered from credit spend: snapshot the total
-    // when overage is first seen, and drop it once back under quota.
-    overageBase: isOverage({ q5, q7 }) ? (prev?.overageBase ?? usd) : null,
-  }))
+  await update($, snapshot, (prev: Snapshot | null): Snapshot => {
+    // No reading between a compaction and the next response: keep its size.
+    const tokens = context.tokens ?? prev?.tokens ?? 0
+
+    return {
+      tokens,
+      window: context.window,
+      percent: context.percent ?? percentOf(tokens, context.window),
+      q5,
+      q7,
+      r5: resets('five_hour'),
+      r7: resets('seven_day'),
+      usd,
+      // Cost does not split plan-covered from credit spend: snapshot the total
+      // when overage is first seen, and drop it once back under quota.
+      overageBase: isOverage({ q5, q7 }) ? (prev?.overageBase ?? usd) : null,
+    }
+  })
 
   // Nothing is pinned to the status line: the band already draws the
   // figures, in colour, on every surface that has one.
@@ -134,8 +140,11 @@ const keptAlive = async ($: EngineInterface, at: number, usage: ModelUsage): Pro
   await update($, cache, (prev: CacheClock | null) => served(prev, at, model, usage))
 }
 
-const forget = async ($: EngineInterface): Promise<void> => {
+const forget = async ($: EngineInterface, tokens: number): Promise<void> => {
   await update($, cache, (prev: CacheClock | null) => (prev === null ? null : { ...prev, at: null }))
+  await update($, snapshot, (prev: Snapshot | null) =>
+    prev === null ? null : { ...prev, tokens, percent: percentOf(tokens, prev.window) },
+  )
 }
 
 export const register: Register = (on, options) => {
@@ -215,16 +224,18 @@ export const register: Register = (on, options) => {
     return result
   })
 
-  // After a /clear or a compaction the next request writes a new prefix.
+  // After a /clear or a compaction the next request writes a new prefix, and
+  // the engine reports no context until that response. session.end also fires
+  // on exit, where nothing is left to draw.
   on('session.end', async ($, e, next) => {
-    await forget($)
+    await forget($, 0)
 
     return next(e)
   })
   on('session.compact', async ($, e, next) => {
     const result = await next(e)
     if (e.agentId === undefined && e.trigger !== 'precompute' && result.skip === undefined) {
-      await forget($).catch(() => undefined)
+      await forget($, result.tokensAfter ?? 0).catch(() => undefined)
     }
 
     return result
