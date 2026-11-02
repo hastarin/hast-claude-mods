@@ -35,7 +35,7 @@ In the desktop app, where `/plugin` does not run, click + next to the prompt box
 
 ## Usage
 
-The bar appears by itself on the desktop app and in VS Code.
+The bar appears by itself in the terminal, on the desktop app and in VS Code.
 Run `/usage-bar` on any surface to print the whole line as plain text, with every segment it has a reading for.
 
 ## Settings
