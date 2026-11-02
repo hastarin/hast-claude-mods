@@ -65,6 +65,7 @@ A compaction shows its new size straight away, or 0 if the engine did not record
 Quota readings come with responses, so each session leaves its newest in the mod's store, and the others pick it up within about 10 seconds.
 That covers sessions on the same computer, once each has had a reading of its own.
 Use on another computer or on claude.ai shows after your next reply.
+Sessions signed in to different accounts on one computer share readings too, unless they use separate `CLAUDE_CONFIG_DIR` folders.
 A window whose reset has passed reads 0% straight away.
 
 When the line is too long for the space, the context bar shrinks to as few as 8 cells, then gives way to a single ring (`○◔◑◕●`) before the line wraps.
@@ -109,6 +110,8 @@ A window with no usable reset time is also coloured by level.
 claude plugin validate .
 claude plugin test .
 ```
+
+A session started with `--plugin-dir` has its own store, so it shares quota readings only with other `--plugin-dir` sessions, not with an installed copy.
 
 ## License
 
