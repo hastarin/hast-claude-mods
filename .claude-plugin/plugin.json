@@ -1,6 +1,80 @@
 {
   "name": "usage-bar",
-  "version": "0.1.3",
-  "description": "Status bar for surfaces without a statusLine: context window fill, 5h/7d quota and session cost",
-  "types": "./types/index.d.ts"
+  "version": "0.2.0",
+  "description": "A usage bar above the prompt: context fill, 5h/7d quota and cost, with optional git, model and prompt cache segments per environment",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "terminalDisplay": {
+      "type": "boolean",
+      "title": "Terminal: show the bar",
+      "description": "Draws the bar above the prompt in the terminal.",
+      "default": true
+    },
+    "terminalGit": {
+      "type": "boolean",
+      "title": "Terminal: show git",
+      "description": "Adds the repository, branch and working tree state. Needs the terminal bar on.",
+      "default": true
+    },
+    "terminalCache": {
+      "type": "boolean",
+      "title": "Terminal: show the cache countdown",
+      "description": "Adds the minutes until the prompt cache expires. Needs the terminal bar on.",
+      "default": true
+    },
+    "terminalModel": {
+      "type": "boolean",
+      "title": "Terminal: show the model",
+      "description": "Adds the model and effort level. Needs the terminal bar on.",
+      "default": true
+    },
+    "vscodeDisplay": {
+      "type": "boolean",
+      "title": "VS Code: show the bar",
+      "description": "Draws the bar above the prompt in VS Code.",
+      "default": true
+    },
+    "vscodeGit": {
+      "type": "boolean",
+      "title": "VS Code: show git",
+      "description": "Adds the repository, branch and working tree state. Needs the VS Code bar on.",
+      "default": false
+    },
+    "vscodeCache": {
+      "type": "boolean",
+      "title": "VS Code: show the cache countdown",
+      "description": "Adds the minutes until the prompt cache expires. Needs the VS Code bar on.",
+      "default": false
+    },
+    "vscodeModel": {
+      "type": "boolean",
+      "title": "VS Code: show the model",
+      "description": "Adds the model and effort level. Needs the VS Code bar on.",
+      "default": false
+    },
+    "desktopDisplay": {
+      "type": "boolean",
+      "title": "Desktop: show the bar",
+      "description": "Draws the bar above the prompt in the desktop app.",
+      "default": true
+    },
+    "desktopGit": {
+      "type": "boolean",
+      "title": "Desktop: show git",
+      "description": "Adds the repository, branch and working tree state. Needs the desktop bar on.",
+      "default": true
+    },
+    "desktopCache": {
+      "type": "boolean",
+      "title": "Desktop: show the cache countdown",
+      "description": "Adds the minutes until the prompt cache expires. Needs the desktop bar on.",
+      "default": true
+    },
+    "desktopModel": {
+      "type": "boolean",
+      "title": "Desktop: show the model",
+      "description": "Adds the model and effort level. Needs the desktop bar on.",
+      "default": false
+    }
+  }
 }

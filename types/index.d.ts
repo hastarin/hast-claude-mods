@@ -12,8 +12,31 @@ export type Snapshot = {
   overageBase: number | null
 }
 
+export type Ttl = '5m' | '1h'
+
+export type CacheClock = {
+  /** When the last request that kept the cache alive was sent; null after a reset. */
+  at: number | null
+  /** The session's model at that request. */
+  model: string
+  /** The lifetime a request has proved, which beats the expected one. */
+  learned: Ttl | null
+}
+
+export type GitState = {
+  repo: string
+  branch: string
+  /** The working tree state, such as `+1 ●2 ?3 ↑1`; empty when clean and in step. */
+  flags: string
+}
+
 declare module 'claude-code' {
   interface PluginState {
-    'usage-bar': { snapshot: Snapshot | null }
+    'usage-bar': {
+      snapshot: Snapshot | null
+      cache: CacheClock | null
+      git: GitState | null
+      effort: string | null
+    }
   }
 }

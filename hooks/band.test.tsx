@@ -20,6 +20,7 @@ test('the band draws the bar on the desktop and in VS Code', async ($, on) => {
   // The engine's side of a measurement and of the status line.
   const pinned: (string | undefined)[] = []
   on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('ui.render', () => ({ type: 'Box', props: {} }) as never)
   on('ui.status', (_$, e) => {
     pinned.push((e as { text?: string }).text)
 
@@ -40,8 +41,40 @@ test('the band draws the bar on the desktop and in VS Code', async ($, on) => {
   }
 })
 
-// The terminal has a statusLine script of its own.
-test('the terminal gets neither the band nor a pinned line', async ($, on) => {
+test('the band dims and colours what the status line script does', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('session.model', () => ({ value: 'claude-opus-5-5' }) as never)
+  on('ui.render', () => ({ type: 'Box', props: {} }) as never)
+  await $.session.measure(measurement)
+
+  const ui = await $.ui.mount({ plugin: 'usage-bar', surface: 'terminal', component: 'AbovePrompt', props })
+  for (const dim of [/^\[$/, /^░+\]$/, /^\/ 1M$/, /^·$/, /^~\$0\.21$/]) {
+    expect((await ui.find({ type: 'Text', text: dim }))?.props.dimColor).toBe(true)
+  }
+  expect((await ui.find({ type: 'Text', text: /^54k$/ }))?.props.color).toBe('#00d75f')
+  await ui.unmount()
+})
+
+test('the band keeps what other plugins draw beneath it', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+
+    return <Text>from another plugin</Text>
+  })
+  await $.session.measure(measurement)
+
+  const ui = await $.ui.mount({ plugin: 'usage-bar', surface: 'desktop', component: 'AbovePrompt', props })
+  expect(await ui.find({ text: /from another plugin/ })).toBeDefined()
+  expect(await ui.find({ text: /54k \/ 1M/ })).toBeDefined()
+  await ui.unmount()
+})
+
+test('with its bar off, the terminal gets neither the band nor a pinned line', {
+  options: { terminalDisplay: false },
+}, async ($, on) => {
   mock.clock(on, { now: NOW })
   const pinned: (string | undefined)[] = []
   on('session.measure', (_$, e) => ({ changed: e.changed }))

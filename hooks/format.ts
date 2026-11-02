@@ -91,8 +91,49 @@ export const isOverage = (s: Pick<Snapshot, 'q5' | 'q7'>): boolean =>
 export const creditUsd = (s: Snapshot): number | null =>
   s.overageBase === null ? null : Math.max(0, s.usd - s.overageBase)
 
+/** A model id as the status line names it: `claude-opus-5-5` reads `Opus 5.5`. */
+export const modelName = (id: string): string => {
+  const found = /(fable|mythos|opus|sonnet|haiku)(?:[- ](\d+(?:[-.]\d{1,2}(?!\d))?))?/i.exec(id)
+  if (found === null) return id
+  const [, family = '', version] = found
+  const name = `${family[0]?.toUpperCase()}${family.slice(1).toLowerCase()}`
+
+  return version === undefined ? name : `${name} ${version.replace('-', '.')}`
+}
+
+/** A model's colour by cost tier, the pricier the louder; undefined when unknown. */
+export const modelTone = (id: string): { color?: string; bold: boolean } => {
+  const name = id.toLowerCase()
+  if (name.includes('fable') || name.includes('mythos')) return { color: '#ff00af', bold: true }
+  if (name.includes('opus')) return { color: '#ff8700', bold: false }
+  if (name.includes('sonnet')) return { color: '#00afaf', bold: false }
+  if (name.includes('haiku')) return { color: '#8a8a8a', bold: false }
+
+  return { bold: false }
+}
+
+/** An effort level's brightness, hueless so it never competes with the model or context colours. */
+export const effortTone = (level: string): { color?: string; bold: boolean; dim: boolean } => {
+  if (level === 'low') return { color: '#585858', bold: false, dim: false }
+  if (level === 'medium') return { color: '#8a8a8a', bold: false, dim: false }
+  if (level === 'high') return { color: '#d0d0d0', bold: false, dim: false }
+  if (level === 'xhigh') return { color: '#ffffff', bold: false, dim: false }
+  if (level === 'max') return { color: '#ffffff', bold: true, dim: false }
+
+  return { bold: false, dim: true }
+}
+
+/** What `/usage-bar` adds to the figures; each is left out when null. */
+export type Extras = {
+  git?: { repo: string; branch: string; flags: string } | null
+  model?: string | null
+  effort?: string | null
+  cache?: string | null
+}
+
 /** The whole bar as one uncoloured line, for `/usage-bar`. */
-export const plain = (s: Snapshot, now: number): string => {
+export const plain = (s: Snapshot, now: number, extras: Extras = {}): string => {
+  const { git = null, model = null, effort = null, cache = null } = extras
   const { on, off } = bar(s.percent)
   const quota =
     s.q5 === null && s.q7 === null
@@ -101,5 +142,9 @@ export const plain = (s: Snapshot, now: number): string => {
   const credit = creditUsd(s)
   const cost = `  ~$${s.usd.toFixed(2)}${credit === null ? '' : ` 💰$${credit.toFixed(2)}`}`
 
-  return `[${on}${off}] ${Math.round(s.percent)}%  ${usedK(s.tokens)} / ${totalK(s.window)}${quota}${cost}`
+  const where = git === null ? '' : `${[git.repo, git.branch, git.flags].filter(Boolean).join(' ')}  |  `
+  const who = model === null ? '' : `${model}${effort === null ? '' : ` [${effort}]`}  `
+  const countdown = cache === null ? '' : `  ${cache}`
+
+  return `${where}${who}[${on}${off}] ${Math.round(s.percent)}%  ${usedK(s.tokens)} / ${totalK(s.window)}${quota}${countdown}${cost}`
 }
