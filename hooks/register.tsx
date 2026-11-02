@@ -19,6 +19,7 @@ import {
   quotaGauge,
   ramp,
   resetAt,
+  ring,
   timeLeft,
   totalK,
   usedK,
@@ -258,7 +259,8 @@ export const register: Register = (on, options) => {
       effort: level,
       cache: countdown?.text ?? null,
     })
-    const { on: filled, off } = bar(s.percent, barCells(line.length, e.props.bodyColumns))
+    const cells = barCells(line.length, e.props.bodyColumns)
+    const { on: filled, off } = bar(s.percent, cells)
     drawn = moving(s, clock, now)
 
     return (
@@ -283,11 +285,11 @@ export const register: Register = (on, options) => {
             </Text>
           )}
           {model === null ? null : '  '}
-          <Text dimColor>[</Text>
+          {cells === 0 ? null : <Text dimColor>[</Text>}
           <Text color={fill.color} bold={fill.bold}>
-            {filled}
+            {cells === 0 ? ring(s.percent) : filled}
           </Text>
-          <Text dimColor>{`${off}]`}</Text>
+          {cells === 0 ? null : <Text dimColor>{`${off}]`}</Text>}
           {' '}
           <Text color={fill.color} bold={fill.bold}>
             {`${Math.round(s.percent)}%`}

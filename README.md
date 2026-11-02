@@ -60,7 +60,7 @@ The band redraws by itself only when something it shows changes, so an idle sess
 
 Context, quota and cost update after each response, including partway through a turn.
 
-When the line is too long for the space, the context bar shrinks to as few as 8 cells before the line wraps.
+When the line is too long for the space, the context bar shrinks to as few as 8 cells, then gives way to a single ring (`○◔◑◕●`) before the line wraps.
 
 Git runs in the background, after each reply and about once a minute when idle, and the band draws its last result.
 It never holds up the prompt, and it only runs while a surface is showing it.

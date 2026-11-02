@@ -80,9 +80,19 @@ export const bar = (p: number, cells = BAR_CELLS): { on: string; off: string } =
   return { on: '█'.repeat(filled), off: '░'.repeat(cells - filled) }
 }
 
-/** Cells for a bar in a line `length` long at full width: any overflow comes out of the bar. */
-export const barCells = (length: number, room: number): number =>
-  room > 0 ? Math.max(MIN_BAR_CELLS, BAR_CELLS - Math.max(0, length - room)) : BAR_CELLS
+/** One glyph for when even the shortest bar will not fit, to the nearest quarter. */
+export const ring = (p: number): string => '○◔◑◕●'.charAt(Math.min(4, Math.max(0, Math.round(p / 25))))
+
+/**
+ * Cells for a bar in a line `length` long at full width: any overflow comes out
+ * of the bar. 0 when even the shortest bar is too long, for `ring` to stand in.
+ */
+export const barCells = (length: number, room: number): number => {
+  const cells = BAR_CELLS - Math.max(0, length - room)
+  if (room <= 0) return BAR_CELLS
+
+  return cells >= MIN_BAR_CELLS ? cells : 0
+}
 
 export const usedK = (n: number): string => `${Math.round(n / 1000)}k`
 

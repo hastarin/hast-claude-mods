@@ -8,6 +8,7 @@ import {
   quotaGauge,
   ramp,
   resetAt,
+  ring,
   timeLeft,
   totalK,
   usedK,
@@ -40,6 +41,10 @@ test('credit spend is the cost since overage began', async () => {
   const over = { ...base, q5: 100, usd: 3.5, overageBase: 3 }
   expect(creditUsd(over)).toBe(0.5)
   expect(plain(over, NOW).endsWith('~$3.50 💰$0.50')).toBe(true)
+})
+
+test('the ring reads to the nearest quarter', async () => {
+  expect([0, 12, 13, 37, 38, 62, 63, 87, 88, 100, 150].map(ring).join('')).toBe('○○◔◔◑◑◕◕●●●')
 })
 
 test('the ramp steps at 50, 75, 90 and 100', async () => {

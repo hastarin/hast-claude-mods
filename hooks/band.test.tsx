@@ -77,9 +77,15 @@ test('the bar gives up cells before the line wraps', async ($, on) => {
   expect(await close.find({ type: 'Text', text: /^░{14}\]$/})).toBeDefined()
   await close.unmount()
 
-  const narrow = await mountAt(30)
+  const narrow = await mountAt(53)
   expect(await narrow.find({ type: 'Text', text: /^░{8}\]$/ })).toBeDefined()
   await narrow.unmount()
+
+  // Past 8 cells the bar gives way to a ring, coloured as the bar is.
+  const tight = await mountAt(52)
+  expect(await tight.find({ type: 'Text', text: /░/ })).toBeUndefined()
+  expect((await tight.find({ type: 'Text', text: /^○$/ }))?.props.color).toBe('#00d75f')
+  await tight.unmount()
 })
 
 test('the band keeps what other plugins draw beneath it', async ($, on) => {
