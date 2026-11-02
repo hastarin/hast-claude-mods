@@ -56,6 +56,29 @@ test('the band dims and colours what the status line script does', async ($, on)
   await ui.unmount()
 })
 
+test('the bar gives up cells before the line wraps, and is drawn in monospace', async ($, on) => {
+  mock.clock(on, { now: NOW })
+  on('session.measure', (_$, e) => ({ changed: e.changed }))
+  on('ui.render', () => ({ type: 'Box', props: {} }) as never)
+  await $.session.measure(measurement)
+
+  const mountAt = (bodyColumns: number) =>
+    $.ui.mount({ plugin: 'usage-bar', surface: 'vscode', component: 'AbovePrompt', props: { ...(props as object), bodyColumns } as never })
+
+  // The line is 65 cells with the whole bar: 19 empty and 1 filled at 5%.
+  const wide = await mountAt(100)
+  expect((await wide.find({ type: 'Text', text: /^░{19}\]$/ }))?.props.mono).toBe(true)
+  await wide.unmount()
+
+  const close = await mountAt(60)
+  expect(await close.find({ type: 'Text', text: /^░{14}\]$/})).toBeDefined()
+  await close.unmount()
+
+  const narrow = await mountAt(30)
+  expect(await narrow.find({ type: 'Text', text: /^░{8}\]$/ })).toBeDefined()
+  await narrow.unmount()
+})
+
 test('the band keeps what other plugins draw beneath it', async ($, on) => {
   mock.clock(on, { now: NOW })
   on('session.measure', (_$, e) => ({ changed: e.changed }))

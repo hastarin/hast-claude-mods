@@ -9,6 +9,7 @@ import {
   GOLD,
   SEVEN_DAYS,
   bar,
+  barCells,
   creditUsd,
   effortTone,
   isOverage,
@@ -239,7 +240,6 @@ export const register: Register = (on, options) => {
     if (show.git) gitWanted = true
     const { Box, Text } = $.ui.resolve(e)
     const now = await $.clock.now()
-    const { on: filled, off } = bar(s.percent)
     const fill = ramp(s.percent)
     const five = ramp(quotaGauge(s.q5 ?? 0, s.r5, FIVE_HOURS, now))
     const seven = ramp(quotaGauge(s.q7 ?? 0, s.r7, SEVEN_DAYS, now))
@@ -252,6 +252,13 @@ export const register: Register = (on, options) => {
     const level = show.model ? await read($, effort) : null
     const tone = model === null ? null : modelTone(model)
     const strength = level === null ? null : effortTone(level)
+    const line = plain(s, now, {
+      git: repo,
+      model: model === null ? null : modelName(model),
+      effort: level,
+      cache: countdown?.text ?? null,
+    })
+    const { on: filled, off } = bar(s.percent, barCells(line.length, e.props.bodyColumns))
     drawn = moving(s, clock, now)
 
     return (
@@ -277,10 +284,12 @@ export const register: Register = (on, options) => {
           )}
           {model === null ? null : '  '}
           <Text dimColor>[</Text>
-          <Text color={fill.color} bold={fill.bold}>
+          <Text color={fill.color} bold={fill.bold} mono>
             {filled}
           </Text>
-          <Text dimColor>{`${off}]`}</Text>
+          <Text dimColor mono>
+            {`${off}]`}
+          </Text>
           {' '}
           <Text color={fill.color} bold={fill.bold}>
             {`${Math.round(s.percent)}%`}

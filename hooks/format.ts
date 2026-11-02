@@ -1,6 +1,7 @@
 import type { Snapshot } from '../types'
 
 export const BAR_CELLS = 20
+const MIN_BAR_CELLS = 8
 
 // Shared green -> amber -> orange -> red ramp for any 0-100 gauge; 100+ goes
 // gold. Hex for xterm 41 / 220 / 208 / 196 / 214, as the terminal script uses.
@@ -73,11 +74,15 @@ export const timeLeft = (resetsAt: number | null, now: number): string => {
   return hours < 24 ? ` (${hours}h)` : ` (${Math.round(hours / 24)}d)`
 }
 
-export const bar = (p: number): { on: string; off: string } => {
-  const filled = Math.min(BAR_CELLS, Math.max(0, Math.floor((p / 100) * BAR_CELLS + 0.5)))
+export const bar = (p: number, cells = BAR_CELLS): { on: string; off: string } => {
+  const filled = Math.min(cells, Math.max(0, Math.floor((p / 100) * cells + 0.5)))
 
-  return { on: '█'.repeat(filled), off: '░'.repeat(BAR_CELLS - filled) }
+  return { on: '█'.repeat(filled), off: '░'.repeat(cells - filled) }
 }
+
+/** Cells for a bar in a line `length` long at full width: any overflow comes out of the bar. */
+export const barCells = (length: number, room: number): number =>
+  room > 0 ? Math.max(MIN_BAR_CELLS, BAR_CELLS - Math.max(0, length - room)) : BAR_CELLS
 
 export const usedK = (n: number): string => `${Math.round(n / 1000)}k`
 
