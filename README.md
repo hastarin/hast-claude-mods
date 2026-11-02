@@ -20,7 +20,7 @@ From left to right, the bar shows:
 At the prompt of a terminal session:
 
 ```text
-/plugin install usage-bar --marketplace hastarin/usage-bar-mod
+/plugin install usage-bar --marketplace hastarin/hast-claude-mods
 ```
 
 Answer `y` to add the marketplace, then press Enter to install at the user scope.
@@ -28,10 +28,10 @@ Answer `y` to add the marketplace, then press Enter to install at the user scope
 From a shell:
 
 ```shell
-claude plugin install usage-bar --marketplace hastarin/usage-bar-mod
+claude plugin install usage-bar --marketplace hastarin/hast-claude-mods
 ```
 
-In the desktop app, where `/plugin` does not run, click + next to the prompt box, then Plugins, Add marketplace with `hastarin/usage-bar-mod`, then Add plugin.
+In the desktop app, where `/plugin` does not run, click + next to the prompt box, then Plugins, Add marketplace with `hastarin/hast-claude-mods`, then Add plugin.
 
 ## Usage
 
@@ -94,7 +94,7 @@ To use it, clone this repository and add the following to `~/.claude/settings.js
 {
   "statusLine": {
     "type": "command",
-    "command": "pwsh -NoProfile -NonInteractive -File ~/source/usage-bar-mod/statusline/statusline.ps1",
+    "command": "pwsh -NoProfile -NonInteractive -File ~/source/hast-claude-mods/statusline/statusline.ps1",
     "refreshInterval": 60
   }
 }

@@ -1,10 +1,11 @@
 {
-  "name": "usage-bar-mod",
+  "name": "hast-claude-mods",
+  "description": "A usage bar above the prompt for Claude Code",
   "owner": { "name": "hastarin" },
   "plugins": [
     {
       "name": "usage-bar",
-      "description": "Coloured usage bar above the prompt: context window fill, 5h/7d quota pace and session cost",
+      "description": "A usage bar above the prompt: context fill, 5h/7d quota and cost, with optional git, model and prompt cache segments per environment",
       "source": "./"
     }
   ]
