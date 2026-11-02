@@ -76,7 +76,7 @@ export const cacheLabel = (
   if (clock === null || clock.at === null) return null
   const ttl = TTL_MS[clock.learned ?? expectedTtl(inputs, s)]
   const left = clock.at + ttl - now
-  if (left <= 0) return { text: 'cache cold', gone: null }
+  if (left <= 0) return { text: 'C cold', gone: null }
 
-  return { text: `cache (${Math.ceil(left / MINUTE)}m)`, gone: 100 - (left * 100) / ttl }
+  return { text: `C (${Math.ceil(left / MINUTE)}m)`, gone: 100 - (left * 100) / ttl }
 }

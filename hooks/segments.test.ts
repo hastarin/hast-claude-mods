@@ -70,12 +70,12 @@ test('a lesson stands until disproved, and a model change proves nothing', async
 test('the countdown reads whole minutes, then cold', async () => {
   const clock = { at: NOW, model: 'opus', learned: null }
   const at = (ms: number) => cacheLabel(clock, inputs, base, NOW + ms)
-  expect(at(0)?.text).toBe('cache (60m)')
+  expect(at(0)?.text).toBe('C (60m)')
   expect(at(0)?.gone).toBe(0)
-  expect(at(13 * MIN)?.text).toBe('cache (47m)')
-  expect(at(59.9 * MIN)?.text).toBe('cache (1m)')
-  expect(at(60 * MIN)).toEqual({ text: 'cache cold', gone: null })
-  expect(cacheLabel({ ...clock, learned: '5m' }, inputs, base, NOW + 2 * MIN)?.text).toBe('cache (3m)')
+  expect(at(13 * MIN)?.text).toBe('C (47m)')
+  expect(at(59.9 * MIN)?.text).toBe('C (1m)')
+  expect(at(60 * MIN)).toEqual({ text: 'C cold', gone: null })
+  expect(cacheLabel({ ...clock, learned: '5m' }, inputs, base, NOW + 2 * MIN)?.text).toBe('C (3m)')
   expect(cacheLabel({ ...clock, at: null }, inputs, base, NOW)).toBe(null)
   expect(cacheLabel(null, inputs, base, NOW)).toBe(null)
 })
@@ -118,7 +118,7 @@ test('the plain line carries the extras in the status line order', async () => {
     git: { repo: 'mod', branch: 'main', flags: '?1' },
     model: 'Opus 5.5',
     effort: 'high',
-    cache: 'cache (50m)',
+    cache: 'C (50m)',
   })
-  expect(line).toBe(`mod main ?1  |  Opus 5.5 [high]  [█${'░'.repeat(19)}] 5%  54k / 1M  5h 9% · 7d 15%  cache (50m)  ~$0.21`)
+  expect(line).toBe(`mod main ?1  |  Opus 5.5 [high]  [█${'░'.repeat(19)}] 5%  54k / 1M  5h 9% · 7d 15%  C (50m)  ~$0.21`)
 })

@@ -73,7 +73,7 @@ test('the defaults: the terminal has everything, desktop git and cache, VS Code 
   await step($)
 
   const desktop = await $.ui.mount(mountAt('desktop'))
-  expect(await desktop.find({ text: /^cache \(60m\)$/ })).toBeDefined()
+  expect(await desktop.find({ text: /^C \(60m\)$/ })).toBeDefined()
   await clock.advance(11_000)
   expect(await desktop.find({ type: 'Text', text: /^mod$/ })).toBeDefined()
   expect(await desktop.find({ type: 'Text', text: /^main$/ })).toBeDefined()
@@ -83,14 +83,14 @@ test('the defaults: the terminal has everything, desktop git and cache, VS Code 
 
   const vscode = await $.ui.mount(mountAt('vscode'))
   expect(await vscode.find({ text: /54k \/ 1M/ })).toBeDefined()
-  expect(await vscode.find({ text: /cache/ })).toBeUndefined()
+  expect(await vscode.find({ text: /C \(\d+m\)/})).toBeUndefined()
   expect(await vscode.find({ type: 'Text', text: /^main$/ })).toBeUndefined()
   await vscode.unmount()
 
   const terminal = await $.ui.mount(mountAt('terminal'))
   expect(await terminal.find({ type: 'Text', text: /^Opus 5\.5$/ })).toBeDefined()
   expect(await terminal.find({ type: 'Text', text: /^ \[high\]$/ })).toBeDefined()
-  expect(await terminal.find({ type: 'Text', text: /^cache \(60m\)$/ })).toBeDefined()
+  expect(await terminal.find({ type: 'Text', text: /^C \(60m\)$/ })).toBeDefined()
   expect(await terminal.find({ type: 'Text', text: /^main$/ })).toBeDefined()
   await terminal.unmount()
 
@@ -118,9 +118,9 @@ test('the countdown moves on its own, then goes cold', async ($, on) => {
 
   const ui = await $.ui.mount(mountAt('desktop'))
   await clock.advance(13 * MIN)
-  expect(await ui.find({ type: 'Text', text: /^cache \(47m\)$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^C \(47m\)$/ })).toBeDefined()
   await clock.advance(47 * MIN)
-  expect(await ui.find({ type: 'Text', text: /^cache cold$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^C cold$/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -177,10 +177,10 @@ test('a keep-alive fork renews the countdown', { plugins: [keeper] }, async ($, 
 
   const ui = await $.ui.mount(mountAt('desktop'))
   await clock.advance(50 * MIN)
-  expect(await ui.find({ type: 'Text', text: /^cache \(10m\)$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^C \(10m\)$/ })).toBeDefined()
   await $.command.run({ command: 'ping' } as never)
   await clock.advance(11_000)
-  expect(await ui.find({ type: 'Text', text: /^cache \(60m\)$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^C \(60m\)$/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -193,7 +193,7 @@ test('a subagent leaves the main countdown alone', async ($, on) => {
   await clock.advance(10 * MIN)
   await step($, 'agent-1')
   await clock.advance(11_000)
-  expect(await ui.find({ type: 'Text', text: /^cache \(50m\)$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^C \(50m\)$/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -203,11 +203,11 @@ test('a compaction clears the countdown until the next reply', async ($, on) => 
   await step($)
 
   const ui = await $.ui.mount(mountAt('desktop'))
-  expect(await ui.find({ type: 'Text', text: /^cache \(60m\)$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^C \(60m\)$/ })).toBeDefined()
   await $.session.compact({ trigger: 'manual', messages: [{ role: 'assistant', text: 'hi', toolUses: [] }] as never })
-  expect(await ui.find({ text: /cache/ })).toBeUndefined()
+  expect(await ui.find({ text: /C \(\d+m\)/})).toBeUndefined()
   await step($)
-  expect(await ui.find({ type: 'Text', text: /^cache \(60m\)$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^C \(60m\)$/ })).toBeDefined()
   await ui.unmount()
 })
 
@@ -218,5 +218,5 @@ test('/usage-bar prints the whole line', async ($, on) => {
 
   const { text } = (await $.command.run({ command: 'usage-bar' } as never)) as { text: string }
   expect(text).toContain('mod main ?1  |  Opus 5.5 [high]  [')
-  expect(text).toContain('cache (60m)  ~$0.21')
+  expect(text).toContain('C (60m)  ~$0.21')
 })

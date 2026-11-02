@@ -56,7 +56,7 @@ test('the band dims and colours what the status line script does', async ($, on)
   await ui.unmount()
 })
 
-test('the bar gives up cells before the line wraps, and is drawn in monospace', async ($, on) => {
+test('the bar gives up cells before the line wraps', async ($, on) => {
   mock.clock(on, { now: NOW })
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('ui.render', () => ({ type: 'Box', props: {} }) as never)
@@ -67,7 +67,10 @@ test('the bar gives up cells before the line wraps, and is drawn in monospace', 
 
   // The line is 65 cells with the whole bar: 19 empty and 1 filled at 5%.
   const wide = await mountAt(100)
-  expect((await wide.find({ type: 'Text', text: /^░{19}\]$/ }))?.props.mono).toBe(true)
+  const empty = await wide.find({ type: 'Text', text: /^░{19}\]$/ })
+  expect(empty).toBeDefined()
+  // Desktop's monospace face draws the two bar glyphs at different heights.
+  expect(empty?.props.mono).toBeUndefined()
   await wide.unmount()
 
   const close = await mountAt(60)

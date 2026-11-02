@@ -3,7 +3,7 @@
 A Claude Code mod that draws a coloured usage bar above the prompt, on any surface you turn it on for.
 
 ```text
-usage-bar-mod main ?1  |  Opus 5.5 [high]  [█░░░░░░░░░░░░░░░░░░░] 5%  54k / 1M  5h 56% (2h) · 7d 25% (4d)  cache (50m)  ~$0.21
+usage-bar-mod main ?1  |  Opus 5.5 [high]  [█░░░░░░░░░░░░░░░░░░░] 5%  54k / 1M  5h 56% (2h) · 7d 25% (4d)  C (50m)  ~$0.21
 ```
 
 From left to right, the bar shows:
@@ -12,7 +12,7 @@ From left to right, the bar shows:
 - The model and effort level, if turned on.
 - Context window fill, as a bar, a percentage and a token count.
 - Quota used in the 5-hour and 7-day windows, with the time until each resets.
-- A countdown to when the prompt cache expires, if turned on.
+- A countdown to when the prompt cache expires, shown as `C`, if turned on.
 - The session's cost, plus the amount charged to credits once a quota window reaches 100%.
 
 ## Install

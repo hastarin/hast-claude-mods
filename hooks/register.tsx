@@ -284,12 +284,10 @@ export const register: Register = (on, options) => {
           )}
           {model === null ? null : '  '}
           <Text dimColor>[</Text>
-          <Text color={fill.color} bold={fill.bold} mono>
+          <Text color={fill.color} bold={fill.bold}>
             {filled}
           </Text>
-          <Text dimColor mono>
-            {`${off}]`}
-          </Text>
+          <Text dimColor>{`${off}]`}</Text>
           {' '}
           <Text color={fill.color} bold={fill.bold}>
             {`${Math.round(s.percent)}%`}
