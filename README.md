@@ -40,7 +40,8 @@ Run `/usage-bar` on any surface to print the whole line as plain text, with ever
 
 ## Settings
 
-Each environment has its own settings in `/config`, which apply as soon as you change them:
+Each environment has its own settings.
+Change them in `/config`, in the Manage Plugins dialog in VS Code, or under Settings, Plugins, Usage bar in the desktop app.
 
 | Environment | Bar | Git | Cache | Model |
 | ----------- | --- | --- | ----- | ----- |
@@ -78,29 +79,6 @@ The countdown has these limits:
 - It stays blank after `--resume` until the first reply.
 - Effort and a `/model` drop show only after the next reply.
 - It cannot see the server renewing the cache by any other route.
-
-## Terminal status line
-
-[`statusline/statusline.ps1`](statusline/statusline.ps1) draws the same line as the terminal's status line.
-
-The script is not part of the plugin, so installing the mod does not set it up.
-The mod shows all of this in the terminal too, so with both set up you see the two side by side.
-To keep only the script, turn off the terminal bar in `/config`.
-It needs [PowerShell 7](https://github.com/PowerShell/PowerShell) (`pwsh`) and, for the git details, `git`.
-
-To use it, clone this repository and add the following to `~/.claude/settings.json`, adjusting the path to match your clone:
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "pwsh -NoProfile -NonInteractive -File ~/source/hast-claude-mods/statusline/statusline.ps1",
-    "refreshInterval": 60
-  }
-}
-```
-
-`refreshInterval` keeps the reset times and the cache countdown moving while the session is idle.
 
 ## Colours
 

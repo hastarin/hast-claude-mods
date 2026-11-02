@@ -29,7 +29,7 @@ const base = {
 const NOW = Date.parse('2026-10-10T02:00:00Z')
 const HOUR = 3600_000
 
-test('the line matches the terminal status line', async () => {
+test('the plain line reads as the band does', async () => {
   expect(plain(base, NOW)).toBe(`[█${'░'.repeat(19)}] 5%  54k / 1M  5h 9% · 7d 15%  ~$0.21`)
 })
 

@@ -4,7 +4,7 @@ export const BAR_CELLS = 20
 const MIN_BAR_CELLS = 8
 
 // Shared green -> amber -> orange -> red ramp for any 0-100 gauge; 100+ goes
-// gold. Hex for xterm 41 / 220 / 208 / 196 / 214, as the terminal script uses.
+// gold. Hex for xterm 41 / 220 / 208 / 196 / 214.
 export const GOLD = '#ffaf00'
 
 export const ramp = (p: number): { color: string; bold: boolean } => {
@@ -106,7 +106,7 @@ export const isOverage = (s: Pick<Snapshot, 'q5' | 'q7'>): boolean =>
 export const creditUsd = (s: Snapshot): number | null =>
   s.overageBase === null ? null : Math.max(0, s.usd - s.overageBase)
 
-/** A model id as the status line names it: `claude-opus-5-5` reads `Opus 5.5`. */
+/** A model id by family and version: `claude-opus-5-5` reads `Opus 5.5`. */
 export const modelName = (id: string): string => {
   const found = /(fable|mythos|opus|sonnet|haiku)(?:[- ](\d+(?:[-.]\d{1,2}(?!\d))?))?/i.exec(id)
   if (found === null) return id

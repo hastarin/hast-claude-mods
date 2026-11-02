@@ -4,7 +4,7 @@ import type { GitState } from '../types'
 export const repoName = (toplevel: string): string =>
   toplevel.trim().replace(/\/+$/, '').split('/').pop() ?? ''
 
-/** Reads `git status --porcelain=v2 --branch`, as the status line script does. */
+/** Reads `git status --porcelain=v2 --branch`. */
 export const parseStatus = (stdout: string, repo: string): GitState => {
   let branch = '?'
   let oid = ''

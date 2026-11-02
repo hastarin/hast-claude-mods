@@ -41,7 +41,7 @@ test('the band draws the bar on the desktop and in VS Code', async ($, on) => {
   }
 })
 
-test('the band dims and colours what the status line script does', async ($, on) => {
+test('the band dims the frame, the window and the cost, and colours the tokens', async ($, on) => {
   mock.clock(on, { now: NOW })
   on('session.measure', (_$, e) => ({ changed: e.changed }))
   on('session.model', () => ({ value: 'claude-opus-5-5' }) as never)

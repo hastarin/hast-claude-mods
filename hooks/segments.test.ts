@@ -80,7 +80,7 @@ test('the countdown reads whole minutes, then cold', async () => {
   expect(cacheLabel(null, inputs, base, NOW)).toBe(null)
 })
 
-test('git status reads as the status line script shows it', async () => {
+test('git status reads as a branch and working tree flags', async () => {
   const status = [
     '# branch.oid 0123456789abcdef',
     '# branch.head main',
@@ -113,7 +113,7 @@ test('a model reads by its family and version, coloured by tier', async () => {
   expect(modelTone('some-other-model').color).toBeUndefined()
 })
 
-test('the plain line carries the extras in the status line order', async () => {
+test('the plain line carries the extras in the order the band does', async () => {
   const line = plain(base, NOW, {
     git: { repo: 'mod', branch: 'main', flags: '?1' },
     model: 'Opus 5.5',
