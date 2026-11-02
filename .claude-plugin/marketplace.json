@@ -1,0 +1,11 @@
+{
+  "name": "usage-bar-mod",
+  "owner": { "name": "hastarin" },
+  "plugins": [
+    {
+      "name": "usage-bar",
+      "description": "Coloured usage bar above the prompt: context window fill, 5h/7d quota pace and session cost",
+      "source": "./"
+    }
+  ]
+}
