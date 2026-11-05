@@ -91,7 +91,9 @@ The countdown has these limits:
 
 Context is coloured by whichever is worse of how full the window is and how many tokens it holds.
 By fill: green, then amber at 50%, orange at 75%, red at 90% and gold at 100%.
-By size: amber from 100k tokens, orange from 200k and red from 300k, whatever the window.
+By size: amber from 100k tokens, orange from 200k and red from 400k, whatever the window.
+The three size limits are settings, in thousands of tokens.
+If they are not in ascending order, the defaults are used.
 Every turn re-reads the whole context, and long contexts drift, so size matters well before a 1M window fills.
 Treat orange as the point to consider compacting.
 

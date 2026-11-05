@@ -1,6 +1,8 @@
 import { expect, test } from 'claude-code/testing'
 
+import { contextLimits } from './config'
 import {
+  CONTEXT_LIMITS,
   FIVE_HOURS,
   bar,
   contextGauge,
@@ -81,9 +83,9 @@ test('the ramp steps at 50, 75, 90 and 100', async () => {
   expect(totalK(200_000)).toBe('200k')
 })
 
-test('context turns amber at 100k, orange at 200k and red at 300k, whatever the window', async () => {
+test('context turns amber at 100k, orange at 200k and red at 400k, whatever the window', async () => {
   const colour = (tokens: number, percent: number) => ramp(contextGauge(tokens, percent)).color
-  expect([99_999, 100_000, 200_000, 300_000].map(t => colour(t, t / 10_000))).toEqual([
+  expect([99_999, 100_000, 200_000, 400_000].map(t => colour(t, t / 10_000))).toEqual([
     '#00d75f',
     '#ffd700',
     '#ff8700',
@@ -92,6 +94,16 @@ test('context turns amber at 100k, orange at 200k and red at 300k, whatever the 
   // A small window still goes by how full it is.
   expect(colour(90_000, 95)).toBe('#ff0000')
   expect(colour(0, 0)).toBe('#00d75f')
+})
+
+test('the context limits come from settings in thousands, or the defaults when they make no sense', async () => {
+  const set = { contextAmberK: 50, contextOrangeK: '150', contextRedK: 250 }
+  expect(contextLimits(set)).toEqual({ amber: 50_000, orange: 150_000, red: 250_000 })
+  expect(contextLimits({})).toEqual(CONTEXT_LIMITS)
+  expect(contextLimits({ ...set, contextRedK: 100 })).toEqual(CONTEXT_LIMITS)
+  expect(contextLimits({ ...set, contextAmberK: 'soon' })).toEqual(CONTEXT_LIMITS)
+  expect(contextLimits({ ...set, contextAmberK: 0 })).toEqual(CONTEXT_LIMITS)
+  expect(ramp(contextGauge(150_000, 15, contextLimits(set))).color).toBe('#ff8700')
 })
 
 test('a window with a reset time shows how long is left', async () => {

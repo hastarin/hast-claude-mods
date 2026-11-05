@@ -3,7 +3,7 @@ import type { EngineInterface, ModelUsage, Register, SessionUsage } from 'claude
 
 import type { CacheClock, GitState, Quota, Snapshot } from '../types'
 import { type TtlInputs, cacheLabel, isOn, served } from './cache'
-import { SURFACES, features } from './config'
+import { SURFACES, contextLimits, features } from './config'
 import {
   FIVE_HOURS,
   GOLD,
@@ -296,7 +296,7 @@ export const register: Register = (on, options) => {
     const { Box, Text } = $.ui.resolve(e)
     const now = await $.clock.now()
     const s = settled(held, now)
-    const fill = ramp(contextGauge(s.tokens, s.percent))
+    const fill = ramp(contextGauge(s.tokens, s.percent, contextLimits(options)))
     const five = ramp(quotaGauge(s.q5 ?? 0, s.r5, FIVE_HOURS, now))
     const seven = ramp(quotaGauge(s.q7 ?? 0, s.r7, SEVEN_DAYS, now))
     const hasQuota = s.q5 !== null || s.q7 !== null

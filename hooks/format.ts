@@ -18,19 +18,22 @@ export const ramp = (p: number): { color: string; bold: boolean } => {
 
 // Context is coloured by whichever is worse: how full the window is, or how
 // many tokens it holds. Each turn re-reads the whole context and long contexts
-// also drift, so size matters on a 1M window long before it is full. Amber from
-// 100k, orange from 200k (a good point to consider compacting), red from 300k.
-export const CONTEXT_STEPS: readonly [tokens: number, gauge: number][] = [
-  [300_000, 90],
-  [200_000, 75],
-  [100_000, 50],
-]
+// also drift, so size matters on a 1M window long before it is full. By default
+// amber from 100k, orange from 200k (a good point to consider compacting) and
+// red from 400k; the three are settings.
+export type ContextLimits = { amber: number; orange: number; red: number }
+
+export const CONTEXT_LIMITS: ContextLimits = { amber: 100_000, orange: 200_000, red: 400_000 }
 
 /** The value to hand `ramp` for the context: the window's percent, raised by size. */
-export const contextGauge = (tokens: number, percent: number): number => {
-  const step = CONTEXT_STEPS.find(([from]) => tokens >= from)
+export const contextGauge = (
+  tokens: number,
+  percent: number,
+  limits: ContextLimits = CONTEXT_LIMITS,
+): number => {
+  const size = tokens >= limits.red ? 90 : tokens >= limits.orange ? 75 : tokens >= limits.amber ? 50 : 0
 
-  return Math.max(percent, step?.[1] ?? 0)
+  return Math.max(percent, size)
 }
 
 export const FIVE_HOURS = 5 * 3600_000

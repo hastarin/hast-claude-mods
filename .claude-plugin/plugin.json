@@ -1,10 +1,31 @@
 {
   "name": "usage-bar",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "A usage bar above the prompt: context fill, 5h/7d quota and cost, with optional git, model and prompt cache segments per environment",
   "author": { "name": "hastarin" },
   "types": "./types/index.d.ts",
   "userConfig": {
+    "contextAmberK": {
+      "type": "number",
+      "title": "Context: amber from (k tokens)",
+      "description": "The context turns amber at this many thousand tokens. Must be below the orange limit.",
+      "default": 100,
+      "min": 1
+    },
+    "contextOrangeK": {
+      "type": "number",
+      "title": "Context: orange from (k tokens)",
+      "description": "The context turns orange at this many thousand tokens: a good point to consider compacting. Must be between the amber and red limits.",
+      "default": 200,
+      "min": 1
+    },
+    "contextRedK": {
+      "type": "number",
+      "title": "Context: red from (k tokens)",
+      "description": "The context turns red at this many thousand tokens. Must be above the orange limit. A window over 90% full is red whatever these are.",
+      "default": 400,
+      "min": 1
+    },
     "terminalDisplay": {
       "type": "boolean",
       "title": "Terminal: show the bar",
