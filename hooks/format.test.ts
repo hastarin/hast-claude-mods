@@ -104,6 +104,7 @@ test('the context limits come from settings in thousands, field by field', async
   // A field left out or unusable takes its own default; the others stand.
   expect(contextLimits({ contextOrangeK: 110 })).toEqual({ amber: 100_000, orange: 110_000, red: 400_000 })
   expect(contextLimits({ ...set, contextAmberK: 'soon' })).toEqual({ ...contextLimits(set), amber: 100_000 })
+  // 0 is how the settings page, which cannot clear a field, resets it.
   expect(contextLimits({ ...set, contextAmberK: 0 })).toEqual({ ...contextLimits(set), amber: 100_000 })
   expect(contextLimits({ contextAmberK: 300 })).toEqual(CONTEXT_LIMITS)
   expect(ramp(contextGauge(150_000, 15, contextLimits(set))).color).toBe('#ff8700')
