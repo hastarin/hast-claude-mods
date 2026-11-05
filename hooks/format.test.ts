@@ -96,13 +96,16 @@ test('context turns amber at 100k, orange at 200k and red at 400k, whatever the 
   expect(colour(0, 0)).toBe('#00d75f')
 })
 
-test('the context limits come from settings in thousands, or the defaults when they make no sense', async () => {
+test('the context limits come from settings in thousands, field by field', async () => {
   const set = { contextAmberK: 50, contextOrangeK: '150', contextRedK: 250 }
   expect(contextLimits(set)).toEqual({ amber: 50_000, orange: 150_000, red: 250_000 })
   expect(contextLimits({})).toEqual(CONTEXT_LIMITS)
   expect(contextLimits({ ...set, contextRedK: 100 })).toEqual(CONTEXT_LIMITS)
-  expect(contextLimits({ ...set, contextAmberK: 'soon' })).toEqual(CONTEXT_LIMITS)
-  expect(contextLimits({ ...set, contextAmberK: 0 })).toEqual(CONTEXT_LIMITS)
+  // A field left out or unusable takes its own default; the others stand.
+  expect(contextLimits({ contextOrangeK: 110 })).toEqual({ amber: 100_000, orange: 110_000, red: 400_000 })
+  expect(contextLimits({ ...set, contextAmberK: 'soon' })).toEqual({ ...contextLimits(set), amber: 100_000 })
+  expect(contextLimits({ ...set, contextAmberK: 0 })).toEqual({ ...contextLimits(set), amber: 100_000 })
+  expect(contextLimits({ contextAmberK: 300 })).toEqual(CONTEXT_LIMITS)
   expect(ramp(contextGauge(150_000, 15, contextLimits(set))).color).toBe('#ff8700')
 })
 

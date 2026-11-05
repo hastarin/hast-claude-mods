@@ -1,6 +1,6 @@
 {
   "name": "usage-bar",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "description": "A usage bar above the prompt: context fill, 5h/7d quota and cost, with optional git, model and prompt cache segments per environment",
   "author": { "name": "hastarin" },
   "types": "./types/index.d.ts",
@@ -8,21 +8,21 @@
     "contextAmberK": {
       "type": "number",
       "title": "Context: amber from (k tokens)",
-      "description": "The context turns amber at this many thousand tokens. Must be below the orange limit.",
+      "description": "The context turns amber at this many thousand tokens. Default 100: enter 100 to reset, as the settings page cannot clear a field. Must be below the orange limit.",
       "default": 100,
       "min": 1
     },
     "contextOrangeK": {
       "type": "number",
       "title": "Context: orange from (k tokens)",
-      "description": "The context turns orange at this many thousand tokens: a good point to consider compacting. Must be between the amber and red limits.",
+      "description": "The context turns orange at this many thousand tokens: a good point to consider compacting. Default 200: enter 200 to reset. Must be between the amber and red limits.",
       "default": 200,
       "min": 1
     },
     "contextRedK": {
       "type": "number",
       "title": "Context: red from (k tokens)",
-      "description": "The context turns red at this many thousand tokens. Must be above the orange limit. A window over 90% full is red whatever these are.",
+      "description": "The context turns red at this many thousand tokens. Default 400: enter 400 to reset. Must be above the orange limit. A window over 90% full is red whatever these are.",
       "default": 400,
       "min": 1
     },

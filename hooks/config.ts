@@ -16,17 +16,22 @@ const PREFIX: Record<RenderSurface, string> = {
 export const SURFACES: readonly RenderSurface[] = ['terminal', 'vscode', 'desktop', 'mobile']
 
 /**
- * The token counts the context changes colour at, set in thousands. Any that is
- * missing, not a positive number or out of order falls back with the rest, so a
- * typo cannot leave the colours in a muddle.
+ * The token counts the context changes colour at, set in thousands. A field
+ * that is missing or not a positive number takes its own default; if the three
+ * then are not in ascending order they all fall back, so a slip cannot leave the
+ * colours in a muddle.
  */
 export const contextLimits = (options: Record<string, unknown>): ContextLimits => {
-  const k = (name: string) => {
+  const k = (name: string, fallback: number) => {
     const value = Number(options[name])
 
-    return Number.isFinite(value) && value > 0 ? value * 1000 : Number.NaN
+    return Number.isFinite(value) && value > 0 ? value * 1000 : fallback
   }
-  const limits = { amber: k('contextAmberK'), orange: k('contextOrangeK'), red: k('contextRedK') }
+  const limits = {
+    amber: k('contextAmberK', CONTEXT_LIMITS.amber),
+    orange: k('contextOrangeK', CONTEXT_LIMITS.orange),
+    red: k('contextRedK', CONTEXT_LIMITS.red),
+  }
 
   return limits.amber < limits.orange && limits.orange < limits.red ? limits : CONTEXT_LIMITS
 }

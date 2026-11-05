@@ -93,7 +93,8 @@ Context is coloured by whichever is worse of how full the window is and how many
 By fill: green, then amber at 50%, orange at 75%, red at 90% and gold at 100%.
 By size: amber from 100k tokens, orange from 200k and red from 400k, whatever the window.
 The three size limits are settings, in thousands of tokens.
-If they are not in ascending order, the defaults are used.
+A blank one uses its default, and if they are not then in ascending order the defaults are used.
+The settings page cannot clear a field once set: enter the default (100, 200 or 400) to reset it.
 Every turn re-reads the whole context, and long contexts drift, so size matters well before a 1M window fills.
 Treat orange as the point to consider compacting.
 
