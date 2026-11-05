@@ -10,6 +10,7 @@ import {
   SEVEN_DAYS,
   bar,
   barCells,
+  contextGauge,
   creditUsd,
   effortTone,
   isOverage,
@@ -295,7 +296,7 @@ export const register: Register = (on, options) => {
     const { Box, Text } = $.ui.resolve(e)
     const now = await $.clock.now()
     const s = settled(held, now)
-    const fill = ramp(s.percent)
+    const fill = ramp(contextGauge(s.tokens, s.percent))
     const five = ramp(quotaGauge(s.q5 ?? 0, s.r5, FIVE_HOURS, now))
     const seven = ramp(quotaGauge(s.q7 ?? 0, s.r7, SEVEN_DAYS, now))
     const hasQuota = s.q5 !== null || s.q7 !== null

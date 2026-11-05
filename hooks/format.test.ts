@@ -3,6 +3,7 @@ import { expect, test } from 'claude-code/testing'
 import {
   FIVE_HOURS,
   bar,
+  contextGauge,
   creditUsd,
   plain,
   quotaGauge,
@@ -78,6 +79,19 @@ test('the ramp steps at 50, 75, 90 and 100', async () => {
   expect(bar(0).on).toBe('')
   expect(usedK(54_321)).toBe('54k')
   expect(totalK(200_000)).toBe('200k')
+})
+
+test('context turns amber at 100k, orange at 200k and red at 300k, whatever the window', async () => {
+  const colour = (tokens: number, percent: number) => ramp(contextGauge(tokens, percent)).color
+  expect([99_999, 100_000, 200_000, 300_000].map(t => colour(t, t / 10_000))).toEqual([
+    '#00d75f',
+    '#ffd700',
+    '#ff8700',
+    '#ff0000',
+  ])
+  // A small window still goes by how full it is.
+  expect(colour(90_000, 95)).toBe('#ff0000')
+  expect(colour(0, 0)).toBe('#00d75f')
 })
 
 test('a window with a reset time shows how long is left', async () => {
