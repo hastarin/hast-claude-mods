@@ -12,6 +12,11 @@
       "name": "repo-sync",
       "description": "Fast-forwards the git repos you list at session start, and tells Claude when an instructions file such as AGENTS.md changed under it",
       "source": "./repo-sync"
+    },
+    {
+      "name": "settings-sync",
+      "description": "Merges a shared settings file, such as one in a synced git repo, into each machine's settings.json at session start, keeping each machine's own settings",
+      "source": "./settings-sync"
     }
   ]
 }
