@@ -11,7 +11,17 @@ const world = (on: On, home: Record<string, string> = { HOME: '/home/jon' }) => 
   const calls: { argv: string[]; env?: Record<string, string> }[] = []
   const toasts: string[] = []
   let pulled = false
-  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  // Where the session draws: the terminal at once; the desktop app only once it attaches.
+  const surfaces: string[] = []
+  on('session.start', (_$, e) => {
+    if (e.surface !== null) surfaces.push(e.surface)
+    return { cwd: e.cwd }
+  })
+  on('session.attach', (_$, e) => {
+    surfaces.push(e.surface)
+    return { clientId: e.clientId }
+  })
+  on('session.surfaces', () => ({ value: [...surfaces] }) as never)
   on('ui.toast', (_$, e) => {
     toasts.push(e.text)
     return { value: undefined } as never
@@ -36,7 +46,7 @@ const world = (on: On, home: Record<string, string> = { HOME: '/home/jon' }) => 
 const COMPOSE = { model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] } as const
 
 const start = ($: Engine) => $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true } as never)
-// How the desktop app and VS Code start a session, the same as a `-p` run.
+// How the desktop app, VS Code and a `-p` run start a session.
 const startDesktop = ($: Engine) => $.session.start({ cwd: '/work', surface: null, isInteractive: false } as never)
 
 test('with no repos set, nothing runs and the prompt is untouched', async ($, on) => {
@@ -73,11 +83,24 @@ test('Windows: USERPROFILE stands in when HOME is unset', { options: { repos: '~
   expect(calls[0]?.argv[2]).toBe('C:\\Users\\hasta/.agents')
 })
 
-test('the desktop app gets the toast and the note, though its session starts as not interactive', { options: { repos: '~/.agents' } }, async ($, on) => {
+test('the desktop app gets the toast once it attaches, and the note', { options: { repos: '~/.agents' } }, async ($, on) => {
   const { toasts } = world(on)
   await startDesktop($)
   const { sections } = await $.prompt.compose(COMPOSE)
+  expect(sections.some(s => s.id === 'repo-sync:note')).toBe(true)
+  // Sent before the app attached, the toast would have had nowhere to show.
+  expect(toasts).toEqual([])
+  await $.session.attach({ surface: 'desktop', clientId: 'desktop:default' })
   expect(toasts).toEqual(['repo-sync: ~/.agents updated 1111111..2222222'])
+  await $.session.attach({ surface: 'desktop', clientId: 'desktop:second' })
+  expect(toasts.length).toBe(1)
+})
+
+test('a -p run, where nothing attaches, still notes for Claude but shows no toast', { options: { repos: '~/.agents' } }, async ($, on) => {
+  const { toasts } = world(on)
+  await startDesktop($)
+  const { sections } = await $.prompt.compose(COMPOSE)
+  expect(toasts).toEqual([])
   expect(sections.some(s => s.id === 'repo-sync:note')).toBe(true)
 })
 

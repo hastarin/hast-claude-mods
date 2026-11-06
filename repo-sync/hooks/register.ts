@@ -33,10 +33,25 @@ const syncAll = async ($: EngineInterface, options: Record<string, unknown>): Pr
   return outcomes
 }
 
-const toastAll = ($: EngineInterface, outcomes: readonly Outcome[]) => {
+// Toasts waiting for a surface to draw them. The desktop app and VS Code attach after the
+// session starts, so a toast sent before that has nowhere to show; a `-p` run never attaches.
+let held: string[] = []
+
+const toast = async ($: EngineInterface, text: string) => {
+  if ((await $.session.surfaces()).length > 0) $.ui.toast(text)
+  else held.push(text)
+}
+
+const showHeld = ($: EngineInterface) => {
+  const texts = held
+  held = []
+  for (const text of texts) $.ui.toast(text)
+}
+
+const toastAll = async ($: EngineInterface, outcomes: readonly Outcome[]) => {
   for (const o of outcomes) {
     const text = toastText(o)
-    if (text !== null) $.ui.toast(`repo-sync: ${text}`)
+    if (text !== null) await toast($, `repo-sync: ${text}`)
   }
 }
 
@@ -68,10 +83,9 @@ export const register: Register = (on, options) => {
     note = null
     // Started, not awaited: the session opens while the pulls run.
     pending = syncAll($, options)
-      // Toasted wherever the session runs: the desktop app and VS Code start like a `-p` run
-      // (not interactive, no surface) yet show toasts, and a host with no surface draws nothing.
-      .then(outcomes => {
-        toastAll($, outcomes)
+      // Not gated on `e.isInteractive`: the desktop app and VS Code start like a `-p` run.
+      .then(async outcomes => {
+        await toastAll($, outcomes)
         return outcomes
       })
       .catch(() => [])
@@ -85,6 +99,13 @@ export const register: Register = (on, options) => {
     } catch {}
 
     return next(e)
+  })
+
+  on('session.attach', async ($, e, next) => {
+    const result = await next(e)
+    showHeld($)
+
+    return result
   })
 
   on('command.run', { command: COMMAND }, async ($, e) => runCommand($, options, e.args)).catch((_$, e, next) =>
