@@ -3,12 +3,12 @@
 A Claude Code mod that draws a coloured usage bar above the prompt, on any surface you turn it on for.
 
 ```text
-usage-bar-mod main ?1  |  Opus 5.5 [high]  [█░░░░░░░░░░░░░░░░░░░] 5%  54k / 1M  5h 56% (2h) · 7d 25% (4d)  C (50m)  ~$0.21
+hast-claude-mods main ?1  |  Opus 5.5 [high]  [█░░░░░░░░░░░░░░░░░░░] 5%  54k / 1M  5h 56% (2h) · 7d 25% (4d)  C (50m)  ~$0.21
 ```
 
 From left to right, the bar shows:
 
-- The git repository, branch and working tree state, if turned on.
+- The git repository (named after its `origin` remote, or its folder if it has none), branch and working tree state, if turned on.
 - The model and effort level, if turned on.
 - Context window fill, as a bar, a percentage and a token count.
 - Quota used in the 5-hour and 7-day windows, with the time until each resets.

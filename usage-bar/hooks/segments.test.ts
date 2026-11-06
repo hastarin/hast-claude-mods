@@ -3,7 +3,7 @@ import { expect, test } from 'claude-code/testing'
 import { cacheLabel, expectedTtl, observedTtl, served } from './cache'
 import { features } from './config'
 import { modelName, modelTone, plain } from './format'
-import { parseStatus, repoName } from './git'
+import { parseStatus, remoteName, repoName } from './git'
 
 const MIN = 60_000
 const NOW = Date.parse('2026-10-10T02:00:00Z')
@@ -100,6 +100,17 @@ test('git status reads as a branch and working tree flags', async () => {
     flags: '',
   })
   expect(repoName('C:/Users/hasta/source/usage-bar-mod\n')).toBe('usage-bar-mod')
+})
+
+test('the remote URL names the repository, however it is written', () => {
+  expect(remoteName('https://github.com/hastarin/hast-claude-mods.git\n')).toBe('hast-claude-mods')
+  expect(remoteName('https://github.com/hastarin/hast-claude-mods/')).toBe('hast-claude-mods')
+  expect(remoteName('git@github.com:hastarin/dotagents.git')).toBe('dotagents')
+  expect(remoteName('ssh://git@host:2222/team/tool.git')).toBe('tool')
+  expect(remoteName('C:\\repos\\local-mirror.git')).toBe('local-mirror')
+  expect(remoteName('../sibling')).toBe('sibling')
+  expect(remoteName('')).toBe('')
+  expect(remoteName('.git')).toBe('')
 })
 
 test('a model reads by its family and version, coloured by tier', async () => {

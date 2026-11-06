@@ -27,7 +27,7 @@ import {
   totalK,
   usedK,
 } from './format'
-import { parseStatus, repoName } from './git'
+import { parseStatus, remoteName, repoName } from './git'
 
 const snapshot = atom({ plugin: 'usage-bar', key: 'snapshot' } as const, null)
 const quotaAt = atom({ plugin: 'usage-bar', key: 'quotaAt' } as const, 0)
@@ -133,10 +133,18 @@ const refreshGit = async ($: EngineInterface, now: number): Promise<void> => {
     if (status.exitCode === 0) {
       const cwd = await $.session.cwd()
       if (named?.cwd !== cwd) {
-        const top = await $.process.run(['git', 'rev-parse', '--show-toplevel'], {
+        // Named after origin, as the desktop app does, so worktrees and clones read the same.
+        const origin = await $.process.run(['git', 'remote', 'get-url', 'origin'], {
           timeoutMs: GIT_TIMEOUT_MS,
         })
-        named = { cwd, repo: repoName(top.stdout) }
+        let repo = origin.exitCode === 0 ? remoteName(origin.stdout) : ''
+        if (repo === '') {
+          const top = await $.process.run(['git', 'rev-parse', '--show-toplevel'], {
+            timeoutMs: GIT_TIMEOUT_MS,
+          })
+          repo = repoName(top.stdout)
+        }
+        named = { cwd, repo }
       }
       next = parseStatus(status.stdout, named.repo)
     }

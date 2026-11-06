@@ -37,7 +37,8 @@ const world = (on: On) => {
     return { value: undefined } as never
   })
   const calls: string[][] = []
-  const figures = { now: measurement, after: undefined as number | undefined }
+  // No origin unless a test gives one, as in a repository that was never pushed.
+  const figures = { now: measurement, after: undefined as number | undefined, origin: null as string | null }
   on('session.start', (_$, e) => ({ ...e }) as never)
   on('session.end', (_$, e) => ({ sessionId: e.sessionId }))
   on('session.measure', (_$, e) => ({ changed: e.changed }))
@@ -51,11 +52,14 @@ const world = (on: On) => {
   on('process.run', (_$, e) => {
     const argv = (e as { argv: string[] }).argv
     calls.push(argv)
-    const stdout = argv.includes('status') ? STATUS : '/work/mod\n'
+    const done = (exitCode: number, stdout: string, stderr = '') =>
+      ({ value: { exitCode, stdout, stderr, isStdoutTruncated: false, isStderrTruncated: false } }) as never
+    if (argv.includes('status')) return done(0, STATUS)
+    if (argv.includes('remote')) {
+      return figures.origin === null ? done(2, '', "error: No such remote 'origin'\n") : done(0, `${figures.origin}\n`)
+    }
 
-    return {
-      value: { exitCode: 0, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false },
-    } as never
+    return done(0, '/work/mod\n')
   })
   on('turn.step', async function* () {
     return { turnId: 't', index: 0, answer: 'ok', toolUses: [], stopReason: 'end_turn', usage: { ...usage, model: 'claude-opus-5-5' } } as never
@@ -144,7 +148,22 @@ test('git runs in the background about once a minute when idle', async ($, on) =
   const statuses = calls.filter(argv => argv.includes('status')).length
   expect(statuses).toBeGreaterThanOrEqual(4)
   expect(statuses).toBeLessThanOrEqual(6)
+  expect(calls.filter(argv => argv.includes('remote')).length).toBe(1)
   expect(calls.filter(argv => argv.includes('rev-parse')).length).toBe(1)
+  await ui.unmount()
+})
+
+test('the repository is named after its origin, as the desktop app names it', async ($, on) => {
+  const { clock, calls, figures } = world(on)
+  figures.origin = 'https://github.com/hastarin/hast-claude-mods.git'
+  await started($)
+
+  const ui = await $.ui.mount(mountAt('desktop'))
+  await clock.advance(11_000)
+  expect(await ui.find({ type: 'Text', text: /^hast-claude-mods$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^mod$/ })).toBeUndefined()
+  expect(calls).toContainEqual(['git', 'remote', 'get-url', 'origin'])
+  expect(calls.filter(argv => argv.includes('rev-parse'))).toEqual([])
   await ui.unmount()
 })
 
