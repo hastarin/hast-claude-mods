@@ -79,3 +79,54 @@ test('a headless run still notes for Claude but shows no toast', { options: { re
   expect(toasts).toEqual([])
   expect(sections.some(s => s.id === 'repo-sync:note')).toBe(true)
 })
+
+const command = ($: Engine, args: string) =>
+  $.command.run({
+    command: 'repo-sync',
+    args,
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 80 },
+  } as never) as Promise<{ text?: string; context?: readonly string[] }>
+
+test('/repo-sync says what the last sync did, and /repo-sync now pulls again', {
+  options: { repos: '~/.agents' },
+}, async ($, on) => {
+  const { calls } = world(on)
+  mock.store(on)
+  const clock = mock.clock(on, { now: 1_000_000 })
+  const registered: string[] = []
+  on('command.register', (_$, e) => {
+    registered.push(e.name)
+    return { value: { command: e.name } } as never
+  })
+  await start($)
+  await $.prompt.compose(COMPOSE)
+  expect(registered).toEqual(['repo-sync'])
+
+  await clock.advance(5 * 60_000)
+  const status = await command($, '')
+  expect(status.text).toBe('Last sync, 5 minutes ago:\n  ~/.agents: updated 1111111..2222222, changing AGENTS.md')
+
+  const pulls = calls.filter(c => c.argv[3] === 'pull').length
+  const now = await command($, 'now')
+  expect(calls.filter(c => c.argv[3] === 'pull').length).toBe(pulls + 1)
+  expect(now.text).toBe('Synced just now:\n  ~/.agents: already up to date')
+  expect(now.context).toEqual([now.text])
+  expect((await command($, '')).text).toMatch(/^Last sync, just now:/)
+  expect((await command($, 'later')).text).toMatch(/^Usage: /)
+})
+
+test('/repo-sync before any sync has run says so', async ($, on) => {
+  mock.store(on)
+  mock.clock(on)
+  expect((await command($, '')).text).toMatch(/^No sync has run on this machine yet/)
+})
+
+test('a /repo-sync now that changes AGENTS.md tells Claude straight away', { options: { repos: '~/.agents' } }, async ($, on) => {
+  world(on)
+  mock.store(on)
+  mock.clock(on)
+  const now = await command($, 'now')
+  expect(now.text).toBe('Synced just now:\n  ~/.agents: updated 1111111..2222222, changing AGENTS.md')
+  expect(now.context?.[1]).toMatch(/AGENTS\.md changed .* re-read it/)
+})

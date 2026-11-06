@@ -121,3 +121,41 @@ export const noteText = (outcomes: readonly Outcome[]): string | null => {
 
   return lines.length === 0 ? null : `# Repo sync\n\n${lines.map(l => `- ${l}`).join('\n')}`
 }
+
+/** How long ago `then` was, in words: `just now`, `5 minutes ago`, `2 hours ago`, `3 days ago`. */
+export const ago = (then: number, now: number): string => {
+  const s = Math.max(0, Math.round((now - then) / 1000))
+  const unit = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'} ago`
+  if (s < 60) return 'just now'
+  if (s < 3600) return unit(Math.floor(s / 60), 'minute')
+  if (s < 86_400) return unit(Math.floor(s / 3600), 'hour')
+
+  return unit(Math.floor(s / 86_400), 'day')
+}
+
+/** One repo's line in `/repo-sync`: what its last pull did. */
+export const statusLine = (o: Outcome): string => {
+  const extra = 'ahead' in o && o.ahead > 0 ? `; ${o.ahead} local commit${o.ahead === 1 ? '' : 's'} not pushed` : ''
+  switch (o.kind) {
+    case 'current':
+      return `${o.repo}: already up to date${extra}`
+    case 'updated':
+      return `${o.repo}: updated ${o.from}..${o.to}${o.changed.length > 0 ? `, changing ${o.changed.join(', ')}` : ''}${extra}`
+    case 'busy':
+      return `${o.repo}: another session was pulling it at the same time`
+    case 'failed':
+      return `${o.repo}: not synced: ${o.reason}`
+  }
+}
+
+/** A sync as `/repo-sync` remembers it: when it ran and what each repo did. */
+export type Last = { at: number; outcomes: readonly Outcome[] }
+
+/** What `/repo-sync` prints: the last sync, or that none has run yet. */
+export const statusText = (last: Last | undefined, now: number, heading?: string): string => {
+  if (last === undefined) return 'No sync has run on this machine yet. Run /repo-sync now to pull now.'
+  if (last.outcomes.length === 0) return 'No repos are listed in the mod\'s settings, so there is nothing to pull.'
+  const title = heading ?? `Last sync, ${ago(last.at, now)}:`
+
+  return [title, ...last.outcomes.map(o => `  ${statusLine(o)}`)].join('\n')
+}

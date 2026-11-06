@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { type Run, expandHome, noteText, parseList, syncRepo, timeoutMs, toastText, watched } from './sync'
+import { type Run, ago, expandHome, noteText, parseList, statusLine, statusText, syncRepo, timeoutMs, toastText, watched } from './sync'
 
 const OLD = '1111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 const NEW = '2222222bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
@@ -124,4 +124,19 @@ test('a folder that is not a repo, or git that will not start, is a failure', as
     throw new Error('timed out after 20000 ms')
   }
   expect(await syncRepo(broken, '/r', '~/r', WATCH)).toEqual({ kind: 'failed', repo: '~/r', reason: 'timed out after 20000 ms' })
+})
+
+test('ago reads in words', () => {
+  expect(ago(0, 30_000)).toBe('just now')
+  expect(ago(0, 60_000)).toBe('1 minute ago')
+  expect(ago(0, 2 * 3_600_000)).toBe('2 hours ago')
+  expect(ago(0, 3 * 86_400_000)).toBe('3 days ago')
+})
+
+test('each kind of outcome has a status line', () => {
+  expect(statusLine({ kind: 'current', repo: 'r', ahead: 1 })).toBe('r: already up to date; 1 local commit not pushed')
+  expect(statusLine({ kind: 'updated', repo: 'r', from: 'a', to: 'b', changed: [], ahead: 0 })).toBe('r: updated a..b')
+  expect(statusLine({ kind: 'busy', repo: 'r' })).toBe('r: another session was pulling it at the same time')
+  expect(statusLine({ kind: 'failed', repo: 'r', reason: 'offline' })).toBe('r: not synced: offline')
+  expect(statusText({ at: 0, outcomes: [] }, 0)).toMatch(/^No repos are listed/)
 })

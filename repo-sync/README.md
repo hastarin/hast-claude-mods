@@ -60,6 +60,22 @@ Set its options in the config menu, or in `~/.claude/settings.json` on each mach
 Git runs directly, with no shell, so the mod works the same on Windows, Linux and macOS.
 A pull that would ask for credentials fails instead of waiting for input.
 
+## Checking what it did
+
+Toasts show in a terminal session.
+The desktop app and other surfaces that drive Claude Code for you may not show them, so a sync that pulled new commits can pass unseen.
+
+Run `/repo-sync` on any surface to see what the last sync did:
+
+```text
+Last sync, 5 minutes ago:
+  ~/.agents: updated 29d9636..9ee3d3b, changing AGENTS.md
+```
+
+Run `/repo-sync now` to pull every listed repo again straight away and see the result.
+When that pull changes a watched file, Claude is told at once, as well as in the note from the next prompt on.
+The last sync is remembered on each machine, so `/repo-sync` still answers after a restart.
+
 ## Development
 
 From this folder (`repo-sync/`):
