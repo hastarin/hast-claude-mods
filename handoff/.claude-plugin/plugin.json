@@ -1,6 +1,6 @@
 {
   "name": "handoff",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "One-click compact or handoff to a new session once the context passes a threshold, with summaries saved to disk",
   "author": { "name": "hastarin" },
   "userConfig": {

@@ -235,8 +235,10 @@ export const register: Register = (on, options) => {
         e.surface === 'desktop'
           ? [['compact', 'Compact'], ['copy', 'Copy handoff'], ['ask', 'Ask Claude for a new session']]
           : [['compact', 'Compact'], ['new', 'New session']]
+      // A desktop or VS Code button is taller than a line of text: the row keeps a line clear
+      // above and below it, so it never rides over another mod's row, whichever is drawn first.
       row = (
-        <Box flexDirection="row" gap={1}>
+        <Box flexDirection="row" gap={1} alignItems="center" marginY={e.surface === 'terminal' ? 0 : 1}>
           <Text dimColor>handoff ({Math.round(tokens / 1000)}k)</Text>
           {buttons.map(([action, label]) => (
             <Button key={`handoff-${action}`} label={label} onPress={press(action)} />
@@ -246,10 +248,8 @@ export const register: Register = (on, options) => {
     }
     if (below === undefined || below === null) return row
 
-    // A desktop or VS Code button is taller than a line of text: without the gap it rides up
-    // over the row above it.
     return (
-      <Box flexDirection="column" gap={e.surface === 'terminal' ? 0 : 1}>
+      <Box flexDirection="column">
         {below}
         {row}
       </Box>
