@@ -1,6 +1,6 @@
 {
   "name": "usage-bar",
-  "version": "0.10.3",
+  "version": "0.10.4",
   "description": "A usage bar above the prompt: context fill, 5h/7d quota and cost, with optional git, model and prompt cache segments per environment",
   "author": { "name": "hastarin" },
   "types": "./types/index.d.ts",
