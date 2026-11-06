@@ -21,6 +21,22 @@ export const parsePaths = (value: unknown): Path[] =>
         .filter(p => p.length > 0)
     : []
 
+/**
+ * `skip` with this mod's own `skip` option added, under whatever marketplace it came from:
+ * each machine picks what it keeps, so that choice is never listed or shared.
+ */
+export const withOwnSkip = (skip: readonly Path[], ...settings: Settings[]): Path[] => {
+  const keys = new Set(
+    settings.flatMap(s => {
+      const configs = s.pluginConfigs
+      return configs !== null && typeof configs === 'object' && !Array.isArray(configs) ? Object.keys(configs) : []
+    }),
+  )
+  const own = [...keys].filter(k => k.startsWith('settings-sync@')).map(k => ['pluginConfigs', k, 'options', 'skip'])
+
+  return [...skip, ...own]
+}
+
 const isUnder = (path: Path, skip: readonly Path[]): boolean =>
   skip.some(s => s.length <= path.length && s.every((k, i) => path[i] === k))
 

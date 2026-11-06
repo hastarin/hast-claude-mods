@@ -179,6 +179,18 @@ test('/settings-sync lists what only this machine has, and add copies it into th
   expect((await run($, 'add 7')).text).toMatch(/^Give item numbers from 1 to 1, not 7/)
 })
 
+test("the mod's own skip option is never listed or synced", { options: { ...FILE, skip: 'model' } }, async ($, on) => {
+  const own = (skip: string) => ({ pluginConfigs: { 'settings-sync@m': { options: { file: '~/f', skip } } } })
+  const { files } = world(on, {
+    [SHARED]: json({ pluginConfigs: { 'settings-sync@m': { options: { file: '~/f', skip: 'theme' } } } }),
+    [OWN]: json(own('model')),
+  })
+  await start($)
+  // This machine keeps its own choice of what to skip.
+  expect(JSON.parse(files[OWN] ?? '')).toEqual(own('model'))
+  expect((await run($, '')).text).not.toContain('skip')
+})
+
 test('add refuses when the settings changed since the report, and refuses secrets', { options: FILE }, async ($, on) => {
   const { files } = world(on, { [SHARED]: json({}), [OWN]: json({ env: { GITHUB_TOKEN: 'abc' } }) })
   await start($)

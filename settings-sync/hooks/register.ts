@@ -1,12 +1,12 @@
 import type { EngineInterface, Register } from 'claude-code'
 
-import { type Item, type Path, drift, omit, parsePaths, promote, refusal, report } from './drift'
+import { type Item, type Path, drift, omit, parsePaths, promote, refusal, report, withOwnSkip } from './drift'
 import { type Settings, apply, changedKeys, expandHome, isPlain, parseSettings } from './merge'
 import { type Last, type Outcome, asLast, outcomeText, statusText } from './status'
 
 /** Both files, read and parsed, or why they could not be. */
 type Files =
-  | { kind: 'ok'; sharedPath: string; shared: Settings; sharedRaw: Settings; target: string; ownText: string; own: Settings }
+  | { kind: 'ok'; skip: Path[]; sharedPath: string; shared: Settings; sharedRaw: Settings; target: string; ownText: string; own: Settings }
   | { kind: 'failed'; reason: string }
 
 // The store key holding the shared settings as last applied, so a later removal can be undone.
@@ -49,11 +49,13 @@ const readFiles = async ($: EngineInterface, file: string, skip: readonly Path[]
   // Never write over a file that cannot be read back: this machine's settings would be lost.
   const own = parseSettings(ownText)
   if (own.kind === 'failed') return { kind: 'failed', reason: `settings.json is ${own.reason}` }
+  const all = withOwnSkip(skip, shared.settings, own.settings)
 
   return {
     kind: 'ok',
+    skip: all,
     sharedPath,
-    shared: omit(shared.settings, skip),
+    shared: omit(shared.settings, all),
     sharedRaw: JSON.parse(sharedText) as Settings,
     target,
     ownText,
@@ -67,7 +69,7 @@ const sync = async ($: EngineInterface, file: string, skip: readonly Path[]): Pr
 
   const stored = await $.store.get(APPLIED)
   // A skipped setting is neither written nor taken out again.
-  const prev = omit(isPlain(stored) ? stored : {}, skip)
+  const prev = omit(isPlain(stored) ? stored : {}, files.skip)
   const merged = apply(files.shared, prev, files.own) as Settings
   // `$schema` stays first, where a file that has one keeps it.
   const original = JSON.parse(files.ownText) as Settings
@@ -146,7 +148,7 @@ const showStatus = async ($: EngineInterface, file: string): Promise<string> =>
 const showDrift = async ($: EngineInterface, file: string, skip: readonly Path[]): Promise<string> => {
   const files = await readFiles($, file, skip)
   if (files.kind === 'failed') return `Cannot compare: ${files.reason}`
-  shown = drift(files.shared, files.own, skip)
+  shown = drift(files.shared, files.own, files.skip)
 
   return report(shown, file)
 }
@@ -163,7 +165,7 @@ const addItems = async ($: EngineInterface, file: string, skip: readonly Path[],
   const files = await readFiles($, file, skip)
   if (files.kind === 'failed') return `Cannot add: ${files.reason}`
   // The files changed since the report: its numbers may point at something else now.
-  if (JSON.stringify(drift(files.shared, files.own, skip)) !== JSON.stringify(shown)) {
+  if (JSON.stringify(drift(files.shared, files.own, files.skip)) !== JSON.stringify(shown)) {
     shown = null
     return 'The settings changed since the last report. Run /settings-sync again, then add by the new numbers.'
   }
