@@ -33,6 +33,8 @@ claude plugin install usage-bar --marketplace hastarin/hast-claude-mods
 
 In the desktop app, where `/plugin` does not run, click + next to the prompt box, then Plugins, Add marketplace with `hastarin/hast-claude-mods`, then Add plugin.
 
+New versions arrive only if you turn on auto-update for the marketplace, or update by hand; see [Updates](../README.md#updates).
+
 ## Usage
 
 The bar appears by itself in the terminal, on the desktop app and in VS Code.

@@ -25,6 +25,18 @@ claude plugin install <mod> --marketplace hastarin/hast-claude-mods
 
 In the desktop app, where `/plugin` does not run, click + next to the prompt box, then Plugins, Add marketplace with `hastarin/hast-claude-mods`, then Add plugin.
 
+## Updates
+
+Claude Code does not update mods from this marketplace by itself until you turn auto-update on for it.
+In a terminal session, run `/plugin`, open Marketplaces, choose `hast-claude-mods` and turn on Enable auto-update.
+Claude Code then checks for new versions during each session and asks you to run `/reload-plugins` when one is installed.
+
+To update by hand instead:
+
+```shell
+claude plugin update <mod>@hast-claude-mods
+```
+
 ## Layout
 
 Each mod lives in its own folder with its own `.claude-plugin/plugin.json`, and `.claude-plugin/marketplace.json` at the root lists them all.

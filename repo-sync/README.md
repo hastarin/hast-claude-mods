@@ -32,6 +32,8 @@ From a shell:
 claude plugin install repo-sync --marketplace hastarin/hast-claude-mods
 ```
 
+New versions arrive only if you turn on auto-update for the marketplace, or update by hand; see [Updates](../README.md#updates).
+
 ## Settings
 
 The mod does nothing until you list at least one repo.
