@@ -85,7 +85,10 @@ A skipped setting is never written on that machine, never taken out there, and n
 Use it on a machine that needs its own value for something the shared file sets, and for settings you mean to keep on one machine, so the report leaves them out.
 Skipping a key reaches every key inside it, and a key whose name has a dot in it cannot be named on its own.
 
-With [repo-sync](../repo-sync/README.md) pulling the same repo, a change pushed from one machine reaches the others at their next session or the one after, depending on whether the pull finishes before this mod reads the file.
+The mod also checks the shared file each time you send a prompt, and syncs again if it has changed since the last sync.
+That check costs one look at the file's size and time, and the sync itself runs only when they differ.
+So with [repo-sync](../repo-sync/README.md) pulling the same repo, a change pushed from one machine reaches the others during their next session, even when the pull finishes after this mod's first sync.
+The same goes for a file kept in step some other way, such as Syncthing or a cloud drive, or edited by hand.
 
 `settings.json` lives in `CLAUDE_CONFIG_DIR` when that is set.
 

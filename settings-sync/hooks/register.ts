@@ -15,6 +15,11 @@ const APPLIED = 'applied'
 const LAST = 'last'
 const COMMAND = 'settings-sync'
 
+// The shared file's size and time as last synced: a change to them means sync again.
+let seen: string | null = null
+// Whether this session can show toasts, as its start said.
+let interactive = false
+
 // The items the last report numbered: `add` copies from these, so the numbers mean what was shown.
 let shown: Item[] | null = null
 
@@ -81,8 +86,21 @@ const sync = async ($: EngineInterface, file: string, skip: readonly Path[]): Pr
   return keys.length > 0 ? { kind: 'applied', keys } : { kind: 'current' }
 }
 
+/** The shared file's size and modification time, or null when it cannot be read. */
+const stamp = async ($: EngineInterface, file: string): Promise<string | null> => {
+  try {
+    const st = await $.fs.stat(expandHome(file, await homeOf($)))
+
+    return `${st.size}:${st.mtimeMs}`
+  } catch {
+    return null
+  }
+}
+
 /** Runs a sync and remembers how it went; a store that fails never loses the sync itself. */
 const syncNow = async ($: EngineInterface, file: string, skip: readonly Path[]): Promise<Outcome> => {
+  // Taken first, so a change made while this runs is picked up by the next check.
+  seen = await stamp($, file)
   const outcome = await sync($, file, skip).catch((err: unknown): Outcome => ({ kind: 'failed', reason: reason(err) }))
   try {
     const last: Last = { at: await $.clock.now(), outcome }
@@ -90,6 +108,22 @@ const syncNow = async ($: EngineInterface, file: string, skip: readonly Path[]):
   } catch {}
 
   return outcome
+}
+
+const toastOutcome = ($: EngineInterface, outcome: Outcome, file: string) => {
+  if (!interactive) return
+  if (outcome.kind === 'applied') $.ui.toast(`settings-sync: updated ${outcome.keys.join(', ')} from ${file}`)
+  if (outcome.kind === 'failed') $.ui.toast(`settings-sync: not applied: ${outcome.reason}`)
+}
+
+/**
+ * Syncs again when the shared file has changed since the last sync, such as when a pull that
+ * was still running at session start lands, or the file is edited by hand.
+ */
+const recheck = async ($: EngineInterface, file: string, skip: readonly Path[]): Promise<void> => {
+  const now = await stamp($, file)
+  if (now === null || now === seen) return
+  toastOutcome($, await syncNow($, file, skip), file)
 }
 
 /** `/settings-sync status`: what the last sync did. */
@@ -147,14 +181,20 @@ export const register: Register = (on, options) => {
       })
     } catch {}
     const result = await next(e)
+    interactive = e.isInteractive
     if (file === '') return result
-    const outcome = await syncNow($, file, skip)
-    if (!e.isInteractive) return result
-    if (outcome.kind === 'applied') $.ui.toast(`settings-sync: updated ${outcome.keys.join(', ')} from ${file}`)
-    if (outcome.kind === 'failed') $.ui.toast(`settings-sync: not applied: ${outcome.reason}`)
+    toastOutcome($, await syncNow($, file, skip), file)
 
     return result
   })
+
+  // A stat per prompt: cheap, and the sync itself only runs when the file changed.
+  on('prompt.submit', async ($, e, next) => {
+    if (file !== '') await recheck($, file, skip).catch(() => undefined)
+
+    return next(e)
+    // The prompt always goes through, whatever the check did.
+  }).catch((_$, e, next) => next(e))
 
   on('command.run', { command: COMMAND }, async ($, e) => {
     const [verb = '', ...rest] = e.args.trim().split(/[\s,]+/).filter(a => a !== '')

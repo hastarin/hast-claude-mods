@@ -31,11 +31,26 @@ const world = (on: On, files: Record<string, string>, store: Record<string, unkn
   on('fs.write', (_$, e) => {
     writes.push(norm(e.path))
     files[norm(e.path)] = e.text
+    times[norm(e.path)] = ++tick
 
     return { value: undefined } as never
   })
+  // A file's time moves on each write, through the mod or by the test's `touch`.
+  const times: Record<string, number> = {}
+  let tick = 1
+  on('fs.stat', (_$, e) => {
+    const text = files[norm(e.path)]
+    if (text === undefined) throw new Error(`ENOENT: no such file, stat '${norm(e.path)}'`)
 
-  return { files, writes, toasts }
+    return { value: { kind: 'file', size: text.length, mtimeMs: times[norm(e.path)] ?? 0, isLink: false } } as never
+  })
+  const touch = (path: string, text: string) => {
+    files[path] = text
+    times[path] = ++tick
+  }
+  on('prompt.submit', (_$, e) => ({ text: e.text }) as never)
+
+  return { files, writes, toasts, touch }
 }
 
 const start = ($: Engine) => $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true } as never)
@@ -193,4 +208,25 @@ test('without the command, the sync still runs', { options: FILE }, async ($, on
   })
   await start($)
   expect(JSON.parse(files[OWN] ?? '')).toEqual({ theme: 'dark' })
+})
+
+const submit = ($: Engine) => $.prompt.submit({ text: 'hi' } as never)
+
+test('a shared file that changes during the session is applied at the next prompt', { options: FILE }, async ($, on) => {
+  const { files, writes, toasts, touch } = world(on, { [SHARED]: json({ theme: 'dark' }), [OWN]: json({}) })
+  await start($)
+  expect(JSON.parse(files[OWN] ?? '')).toEqual({ theme: 'dark' })
+
+  // Nothing changed: the prompt costs a stat and nothing else.
+  await submit($)
+  expect(writes.filter(w => w === OWN).length).toBe(1)
+
+  // A pull lands after the session started.
+  touch(SHARED, json({ theme: 'light' }))
+  await submit($)
+  expect(JSON.parse(files[OWN] ?? '')).toEqual({ theme: 'light' })
+  expect(toasts.at(-1)).toBe('settings-sync: updated theme from ~/.agents/claude/settings.json')
+
+  await submit($)
+  expect(writes.filter(w => w === OWN).length).toBe(2)
 })
