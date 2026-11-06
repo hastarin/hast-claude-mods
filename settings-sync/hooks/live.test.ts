@@ -153,3 +153,44 @@ test('add refuses when the settings changed since the report, and refuses secret
   files[OWN] = json({ env: { GITHUB_TOKEN: 'abc' }, theme: 'dark' })
   expect((await run($, 'add 1')).text).toMatch(/changed since the last report/)
 })
+
+test('/settings-sync status says what the last sync did, and now syncs again', { options: FILE }, async ($, on) => {
+  const { files, writes } = world(on, { [SHARED]: json({ theme: 'dark' }), [OWN]: json({}) })
+  const clock = mock.clock(on, { now: 1_000_000 })
+  await start($)
+
+  await clock.advance(2 * 3_600_000)
+  expect((await run($, 'status')).text).toBe(
+    'Last sync, 2 hours ago: updated theme in settings.json from ~/.agents/claude/settings.json; the old file is in settings.json.settings-sync.bak.',
+  )
+
+  files[SHARED] = json({ theme: 'light' })
+  const now = await run($, 'now')
+  expect(now.text).toMatch(/^Synced just now: updated theme in settings\.json/)
+  expect(JSON.parse(files[OWN] ?? '')).toEqual({ theme: 'light' })
+  expect(writes.filter(w => w === OWN).length).toBe(2)
+  expect((await run($, 'now')).text).toBe('Synced just now: settings.json already matched ~/.agents/claude/settings.json, so nothing was written.')
+  expect((await run($, 'status')).text).toMatch(/^Last sync, just now: settings\.json already matched/)
+})
+
+test('/settings-sync status before any sync has run says so', { options: FILE }, async ($, on) => {
+  world(on, {})
+  mock.clock(on)
+  expect((await run($, 'status')).text).toMatch(/^No sync has run on this machine yet/)
+})
+
+test('without the command, the sync still runs', { options: FILE }, async ($, on) => {
+  mock.env(on, { HOME: '/home/jon' })
+  mock.store(on)
+  const files: Record<string, string> = { [SHARED]: json({ theme: 'dark' }) }
+  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  on('ui.toast', () => ({ value: undefined }) as never)
+  on('fs.exists', (_$, e) => ({ value: norm(e.path) in files }) as never)
+  on('fs.read', (_$, e) => ({ value: files[norm(e.path)] }) as never)
+  on('fs.write', (_$, e) => {
+    files[norm(e.path)] = e.text
+    return { value: undefined } as never
+  })
+  await start($)
+  expect(JSON.parse(files[OWN] ?? '')).toEqual({ theme: 'dark' })
+})

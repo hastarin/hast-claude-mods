@@ -1,6 +1,6 @@
 {
   "name": "settings-sync",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Merges a shared settings file, such as one in a synced git repo, into each machine's settings.json at session start, keeping each machine's own settings",
   "author": { "name": "hastarin" },
   "userConfig": {

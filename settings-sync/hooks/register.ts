@@ -2,9 +2,7 @@ import type { EngineInterface, Register } from 'claude-code'
 
 import { type Item, type Path, drift, omit, parsePaths, promote, refusal, report } from './drift'
 import { type Settings, apply, changedKeys, expandHome, isPlain, parseSettings } from './merge'
-
-/** How applying the shared file went. */
-type Outcome = { kind: 'current' } | { kind: 'applied'; keys: string[] } | { kind: 'failed'; reason: string }
+import { type Last, type Outcome, asLast, outcomeText, statusText } from './status'
 
 /** Both files, read and parsed, or why they could not be. */
 type Files =
@@ -13,6 +11,8 @@ type Files =
 
 // The store key holding the shared settings as last applied, so a later removal can be undone.
 const APPLIED = 'applied'
+// The store key holding the last sync, so `/settings-sync status` can say what it did on any surface.
+const LAST = 'last'
 const COMMAND = 'settings-sync'
 
 // The items the last report numbered: `add` copies from these, so the numbers mean what was shown.
@@ -81,6 +81,21 @@ const sync = async ($: EngineInterface, file: string, skip: readonly Path[]): Pr
   return keys.length > 0 ? { kind: 'applied', keys } : { kind: 'current' }
 }
 
+/** Runs a sync and remembers how it went; a store that fails never loses the sync itself. */
+const syncNow = async ($: EngineInterface, file: string, skip: readonly Path[]): Promise<Outcome> => {
+  const outcome = await sync($, file, skip).catch((err: unknown): Outcome => ({ kind: 'failed', reason: reason(err) }))
+  try {
+    const last: Last = { at: await $.clock.now(), outcome }
+    await $.store.set(LAST, last)
+  } catch {}
+
+  return outcome
+}
+
+/** `/settings-sync status`: what the last sync did. */
+const showStatus = async ($: EngineInterface, file: string): Promise<string> =>
+  statusText(asLast(await $.store.get(LAST)), await $.clock.now(), file)
+
 /** `/settings-sync`: lists what this machine has that the shared file lacks. */
 const showDrift = async ($: EngineInterface, file: string, skip: readonly Path[]): Promise<string> => {
   const files = await readFiles($, file, skip)
@@ -123,14 +138,17 @@ export const register: Register = (on, options) => {
   const skip = parsePaths(options.skip)
 
   on('session.start', async ($, e, next) => {
-    await $.command.register({
-      name: COMMAND,
-      description: 'Show settings this machine has that the shared settings file lacks, and copy them across',
-      argumentHint: '[add <numbers>]',
-    })
+    // A surface that cannot take the command still syncs.
+    try {
+      await $.command.register({
+        name: COMMAND,
+        description: 'Show settings this machine has that the shared settings file lacks, copy them across, or sync now',
+        argumentHint: '[add <numbers> | status | now]',
+      })
+    } catch {}
     const result = await next(e)
     if (file === '') return result
-    const outcome = await sync($, file, skip).catch((err: unknown): Outcome => ({ kind: 'failed', reason: reason(err) }))
+    const outcome = await syncNow($, file, skip)
     if (!e.isInteractive) return result
     if (outcome.kind === 'applied') $.ui.toast(`settings-sync: updated ${outcome.keys.join(', ')} from ${file}`)
     if (outcome.kind === 'failed') $.ui.toast(`settings-sync: not applied: ${outcome.reason}`)
@@ -144,7 +162,9 @@ export const register: Register = (on, options) => {
     if (file === '') text = 'Set the shared settings file in the mod\'s settings first.'
     else if (verb === '') text = await showDrift($, file, skip)
     else if (verb === 'add') text = await addItems($, file, skip, rest)
-    else text = 'Usage: /settings-sync to list what this machine has that the shared file lacks, /settings-sync add <numbers> to copy items into it.'
+    else if (verb === 'status') text = await showStatus($, file)
+    else if (verb === 'now') text = `Synced just now: ${outcomeText(await syncNow($, file, skip), file)}`
+    else text = 'Usage: /settings-sync to list what this machine has that the shared file lacks, /settings-sync add <numbers> to copy items into it, /settings-sync status to see what the last sync did, /settings-sync now to sync again.'
 
     // Claude reads it too, so it can help choose what to share.
     return { text, context: [text] }

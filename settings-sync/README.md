@@ -27,6 +27,14 @@ Change it in the shared file instead, or take it out of the shared file to let e
 Claude Code picks up most changes to `settings.json` straight away.
 Some settings, such as `model` and `env`, apply from the next session.
 
+## Checking what it did
+
+Toasts show in a terminal session.
+The desktop app and other surfaces that drive Claude Code for you may not show them.
+
+- `/settings-sync status` says when the last sync ran and what it changed, on any surface.
+- `/settings-sync now` syncs again straight away, such as after pulling a change to the shared file, and says what it did.
+
 ## Install
 
 At the prompt of a terminal session:
