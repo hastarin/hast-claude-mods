@@ -15,7 +15,17 @@ const world = (on: On, files: Record<string, string>, store: Record<string, unkn
   mock.store(on, store)
   const writes: string[] = []
   const toasts: string[] = []
-  on('session.start', (_$, e) => ({ cwd: e.cwd }))
+  // Where the session draws: the terminal at once; the desktop app only once it attaches.
+  const surfaces: string[] = []
+  on('session.start', (_$, e) => {
+    if (e.surface !== null) surfaces.push(e.surface)
+    return { cwd: e.cwd }
+  })
+  on('session.attach', (_$, e) => {
+    surfaces.push(e.surface)
+    return { clientId: e.clientId }
+  })
+  on('session.surfaces', () => ({ value: [...surfaces] }) as never)
   on('command.register', (_$, e) => ({ value: { command: e.name } }) as never)
   on('ui.toast', (_$, e) => {
     toasts.push(e.text)
@@ -54,7 +64,7 @@ const world = (on: On, files: Record<string, string>, store: Record<string, unkn
 }
 
 const start = ($: Engine) => $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true } as never)
-// How the desktop app and VS Code start a session, the same as a `-p` run.
+// How the desktop app, VS Code and a `-p` run start a session.
 const startDesktop = ($: Engine) => $.session.start({ cwd: '/work', surface: null, isInteractive: false } as never)
 const json = (v: unknown) => JSON.stringify(v, null, 2)
 
@@ -88,9 +98,13 @@ test('the shared file is merged into settings.json, with a backup, once', { opti
   expect(toasts.length).toBe(1)
 })
 
-test('the desktop app gets the toast, though its session starts as not interactive', { options: FILE }, async ($, on) => {
-  const { toasts } = world(on, { [SHARED]: json({ model: 'opus' }), [OWN]: json({}) })
+test('the desktop app gets the toast once it attaches; a -p run, where nothing attaches, gets none', { options: FILE }, async ($, on) => {
+  const { files, toasts } = world(on, { [SHARED]: json({ model: 'opus' }), [OWN]: json({}) })
   await startDesktop($)
+  expect(JSON.parse(files[OWN] ?? '').model).toBe('opus')
+  // Sent before the app attached, the toast would have had nowhere to show.
+  expect(toasts).toEqual([])
+  await $.session.attach({ surface: 'desktop', clientId: 'desktop:default' })
   expect(toasts).toEqual(['settings-sync: updated model from ~/.agents/claude/settings.json'])
 })
 

@@ -107,11 +107,25 @@ const syncNow = async ($: EngineInterface, file: string, skip: readonly Path[]):
   return outcome
 }
 
-// Toasted wherever the session runs: the desktop app and VS Code start like a `-p` run
-// (not interactive, no surface) yet show toasts, and a host with no surface draws nothing.
-const toastOutcome = ($: EngineInterface, outcome: Outcome, file: string) => {
-  if (outcome.kind === 'applied') $.ui.toast(`settings-sync: updated ${outcome.keys.join(', ')} from ${file}`)
-  if (outcome.kind === 'failed') $.ui.toast(`settings-sync: not applied: ${outcome.reason}`)
+// Toasts waiting for a surface to draw them. The desktop app and VS Code attach after the
+// session starts, so a toast sent before that has nowhere to show; a `-p` run never attaches.
+let held: string[] = []
+
+const toast = async ($: EngineInterface, text: string) => {
+  if ((await $.session.surfaces()).length > 0) $.ui.toast(text)
+  else held.push(text)
+}
+
+const showHeld = ($: EngineInterface) => {
+  const texts = held
+  held = []
+  for (const text of texts) $.ui.toast(text)
+}
+
+// Not gated on `e.isInteractive`: the desktop app and VS Code start like a `-p` run.
+const toastOutcome = async ($: EngineInterface, outcome: Outcome, file: string) => {
+  if (outcome.kind === 'applied') await toast($, `settings-sync: updated ${outcome.keys.join(', ')} from ${file}`)
+  if (outcome.kind === 'failed') await toast($, `settings-sync: not applied: ${outcome.reason}`)
 }
 
 /**
@@ -121,7 +135,7 @@ const toastOutcome = ($: EngineInterface, outcome: Outcome, file: string) => {
 const recheck = async ($: EngineInterface, file: string, skip: readonly Path[]): Promise<void> => {
   const now = await stamp($, file)
   if (now === null || now === seen) return
-  toastOutcome($, await syncNow($, file, skip), file)
+  await toastOutcome($, await syncNow($, file, skip), file)
 }
 
 /** `/settings-sync status`: what the last sync did. */
@@ -180,7 +194,14 @@ export const register: Register = (on, options) => {
     } catch {}
     const result = await next(e)
     if (file === '') return result
-    toastOutcome($, await syncNow($, file, skip), file)
+    await toastOutcome($, await syncNow($, file, skip), file)
+
+    return result
+  })
+
+  on('session.attach', async ($, e, next) => {
+    const result = await next(e)
+    showHeld($)
 
     return result
   })
