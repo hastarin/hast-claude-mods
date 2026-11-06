@@ -5,6 +5,7 @@ Claude Code mods by hastarin, published as one plugin marketplace.
 | Mod | What it does |
 | --- | --- |
 | [usage-bar](usage-bar/README.md) | A coloured usage bar above the prompt: context fill, 5h/7d quota and cost, with optional git, model and prompt cache segments. |
+| [repo-sync](repo-sync/README.md) | Fast-forwards the git repos you list at session start, and tells Claude when an instructions file such as `AGENTS.md` changed under it. |
 
 ## Install
 

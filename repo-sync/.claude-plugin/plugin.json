@@ -1,0 +1,27 @@
+{
+  "name": "repo-sync",
+  "version": "0.1.0",
+  "description": "Fast-forwards the git repos you list at session start, and tells Claude when an instructions file such as AGENTS.md changed under it",
+  "author": { "name": "hastarin" },
+  "userConfig": {
+    "repos": {
+      "type": "string",
+      "title": "Repos to pull",
+      "description": "Folders to pull with git pull --ff-only when a session starts, separated by commas. ~ means your home folder. Leave empty to do nothing.",
+      "default": ""
+    },
+    "watch": {
+      "type": "string",
+      "title": "Files that mean re-read",
+      "description": "File names, separated by commas. When a pull changes one of them, Claude is told to re-read it, since the copy it loaded at startup may be stale.",
+      "default": "AGENTS.md, CLAUDE.md"
+    },
+    "timeoutSeconds": {
+      "type": "number",
+      "title": "Pull timeout (seconds)",
+      "description": "How long a pull may take before it is given up. The first prompt waits at most this long for the result. Default 20; enter 0 to reset to it.",
+      "default": 20,
+      "min": 0
+    }
+  }
+}

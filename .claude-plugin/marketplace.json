@@ -7,6 +7,11 @@
       "name": "usage-bar",
       "description": "A usage bar above the prompt: context fill, 5h/7d quota and cost, with optional git, model and prompt cache segments per environment",
       "source": "./usage-bar"
+    },
+    {
+      "name": "repo-sync",
+      "description": "Fast-forwards the git repos you list at session start, and tells Claude when an instructions file such as AGENTS.md changed under it",
+      "source": "./repo-sync"
     }
   ]
 }
