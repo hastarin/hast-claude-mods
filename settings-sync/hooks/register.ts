@@ -17,9 +17,6 @@ const COMMAND = 'settings-sync'
 
 // The shared file's size and time as last synced: a change to them means sync again.
 let seen: string | null = null
-// Whether this session can show toasts, as its start said.
-let interactive = false
-
 // The items the last report numbered: `add` copies from these, so the numbers mean what was shown.
 let shown: Item[] | null = null
 
@@ -110,8 +107,9 @@ const syncNow = async ($: EngineInterface, file: string, skip: readonly Path[]):
   return outcome
 }
 
+// Toasted wherever the session runs: the desktop app and VS Code start like a `-p` run
+// (not interactive, no surface) yet show toasts, and a host with no surface draws nothing.
 const toastOutcome = ($: EngineInterface, outcome: Outcome, file: string) => {
-  if (!interactive) return
   if (outcome.kind === 'applied') $.ui.toast(`settings-sync: updated ${outcome.keys.join(', ')} from ${file}`)
   if (outcome.kind === 'failed') $.ui.toast(`settings-sync: not applied: ${outcome.reason}`)
 }
@@ -181,7 +179,6 @@ export const register: Register = (on, options) => {
       })
     } catch {}
     const result = await next(e)
-    interactive = e.isInteractive
     if (file === '') return result
     toastOutcome($, await syncNow($, file, skip), file)
 

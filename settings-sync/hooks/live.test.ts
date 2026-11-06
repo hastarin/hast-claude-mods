@@ -54,6 +54,8 @@ const world = (on: On, files: Record<string, string>, store: Record<string, unkn
 }
 
 const start = ($: Engine) => $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true } as never)
+// How the desktop app and VS Code start a session, the same as a `-p` run.
+const startDesktop = ($: Engine) => $.session.start({ cwd: '/work', surface: null, isInteractive: false } as never)
 const json = (v: unknown) => JSON.stringify(v, null, 2)
 
 test('with no file set, nothing is read or written', async ($, on) => {
@@ -84,6 +86,12 @@ test('the shared file is merged into settings.json, with a backup, once', { opti
   await start($)
   expect(writes).toEqual([`${OWN}.settings-sync.bak`, OWN])
   expect(toasts.length).toBe(1)
+})
+
+test('the desktop app gets the toast, though its session starts as not interactive', { options: FILE }, async ($, on) => {
+  const { toasts } = world(on, { [SHARED]: json({ model: 'opus' }), [OWN]: json({}) })
+  await startDesktop($)
+  expect(toasts).toEqual(['settings-sync: updated model from ~/.agents/claude/settings.json'])
 })
 
 test('a rule taken out of the shared file is taken out here too', { options: FILE }, async ($, on) => {
