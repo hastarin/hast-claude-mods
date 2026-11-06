@@ -17,6 +17,11 @@
       "name": "settings-sync",
       "description": "Merges a shared settings file, such as one in a synced git repo, into each machine's settings.json at session start, keeping each machine's own settings",
       "source": "./settings-sync"
+    },
+    {
+      "name": "handoff",
+      "description": "One-click compact or handoff to a new session once the context passes a threshold, with summaries saved to disk",
+      "source": "./handoff"
     }
   ]
 }

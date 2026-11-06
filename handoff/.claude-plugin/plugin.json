@@ -1,0 +1,33 @@
+{
+  "name": "handoff",
+  "version": "0.1.0",
+  "description": "One-click compact or handoff to a new session once the context passes a threshold, with summaries saved to disk",
+  "author": { "name": "hastarin" },
+  "userConfig": {
+    "thresholdK": {
+      "type": "number",
+      "title": "Show the buttons from (k tokens)",
+      "description": "The handoff buttons appear above the prompt once the context holds this many thousand tokens. Default 200; enter 0 to reset to it, as the settings page cannot clear a field. /handoff works at any size.",
+      "default": 200,
+      "min": 0
+    },
+    "instructionsFile": {
+      "type": "string",
+      "title": "Your own summary instructions",
+      "description": "A text file holding what the summary should cover, used in place of the mod's own instructions. ~ means your home folder. Leave empty to use the mod's.",
+      "default": ""
+    },
+    "compactFirst": {
+      "type": "boolean",
+      "title": "New session: compact the old one first",
+      "description": "Compacts the old session before starting the new one, so resuming it later loads from the summary. Turned off, the summary is written without changing the old session.",
+      "default": true
+    },
+    "folder": {
+      "type": "string",
+      "title": "Folder for saved summaries",
+      "description": "Where each handoff summary is saved, one file per handoff. ~ means your home folder.",
+      "default": "~/.claude/handoffs"
+    }
+  }
+}

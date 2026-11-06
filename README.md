@@ -7,6 +7,7 @@ Claude Code mods by hastarin, published as one plugin marketplace.
 | [usage-bar](usage-bar/README.md) | A coloured usage bar above the prompt: context fill, 5h/7d quota and cost, with optional git, model and prompt cache segments. |
 | [repo-sync](repo-sync/README.md) | Fast-forwards the git repos you list at session start, and tells Claude when an instructions file such as `AGENTS.md` changed under it. |
 | [settings-sync](settings-sync/README.md) | Merges a shared settings file, such as one in a synced git repo, into each machine's `settings.json` at session start, keeping each machine's own settings. |
+| [handoff](handoff/README.md) | Once the context gets long, buttons above the prompt compact the session or hand it off to a new one in one click, with each summary saved to disk. |
 
 ## Install
 
