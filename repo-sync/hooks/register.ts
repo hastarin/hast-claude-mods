@@ -68,8 +68,10 @@ export const register: Register = (on, options) => {
     note = null
     // Started, not awaited: the session opens while the pulls run.
     pending = syncAll($, options)
+      // Toasted wherever the session runs: the desktop app and VS Code start like a `-p` run
+      // (not interactive, no surface) yet show toasts, and a host with no surface draws nothing.
       .then(outcomes => {
-        if (e.isInteractive) toastAll($, outcomes)
+        toastAll($, outcomes)
         return outcomes
       })
       .catch(() => [])

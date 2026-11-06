@@ -62,8 +62,7 @@ A pull that would ask for credentials fails instead of waiting for input.
 
 ## Checking what it did
 
-Toasts show in a terminal session.
-The desktop app and other surfaces that drive Claude Code for you may not show them, so a sync that pulled new commits can pass unseen.
+Toasts show in the terminal and the desktop app, and pass by after a few seconds.
 
 Run `/repo-sync` on any surface to see what the last sync did:
 

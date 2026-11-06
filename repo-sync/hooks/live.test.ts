@@ -35,8 +35,9 @@ const world = (on: On, home: Record<string, string> = { HOME: '/home/jon' }) => 
 
 const COMPOSE = { model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: ['terminal'], tools: [], outputStyle: null, traits: [] } as const
 
-const start = ($: Engine, isInteractive = true) =>
-  $.session.start({ cwd: '/work', surface: 'terminal', isInteractive } as never)
+const start = ($: Engine) => $.session.start({ cwd: '/work', surface: 'terminal', isInteractive: true } as never)
+// How the desktop app and VS Code start a session, the same as a `-p` run.
+const startDesktop = ($: Engine) => $.session.start({ cwd: '/work', surface: null, isInteractive: false } as never)
 
 test('with no repos set, nothing runs and the prompt is untouched', async ($, on) => {
   const { calls, toasts } = world(on)
@@ -72,11 +73,11 @@ test('Windows: USERPROFILE stands in when HOME is unset', { options: { repos: '~
   expect(calls[0]?.argv[2]).toBe('C:\\Users\\hasta/.agents')
 })
 
-test('a headless run still notes for Claude but shows no toast', { options: { repos: '~/.agents' } }, async ($, on) => {
+test('the desktop app gets the toast and the note, though its session starts as not interactive', { options: { repos: '~/.agents' } }, async ($, on) => {
   const { toasts } = world(on)
-  await start($, false)
+  await startDesktop($)
   const { sections } = await $.prompt.compose(COMPOSE)
-  expect(toasts).toEqual([])
+  expect(toasts).toEqual(['repo-sync: ~/.agents updated 1111111..2222222'])
   expect(sections.some(s => s.id === 'repo-sync:note')).toBe(true)
 })
 
