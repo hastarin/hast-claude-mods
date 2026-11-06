@@ -40,8 +40,15 @@ export const expandHome = (path: string, home: string | undefined): string => {
 export const firstLine = (text: string): string =>
   (text.split(/\r?\n/).find(l => l.trim() !== '') ?? 'unknown error').replace(/^(fatal|error):\s*/, '').trim()
 
-// Another session pulling the same repo holds git's lock: that is not a failure.
-const isLocked = (stderr: string): boolean => /index\.lock|Unable to create '.*\.lock'/i.test(stderr)
+// Another session pulling the same repo at once: it holds git's lock, or its fetch landed in
+// FETCH_HEAD beside this one's. Neither is a failure, and trying again soon usually gets through.
+const isClash = (stderr: string): boolean =>
+  /index\.lock|Unable to create '.*\.lock'|Cannot fast-forward to multiple branches/i.test(stderr)
+
+// How many times a pull is tried when it clashes, and the wait between tries, spread at random
+// so two sessions that clashed do not try again in step.
+const PULL_TRIES = 3
+const retryDelayMs = (): number => 500 + Math.floor(Math.random() * 1001)
 
 const short = (sha: string): string => sha.slice(0, 7)
 
@@ -52,8 +59,15 @@ export const watched = (path: string, watch: readonly string[]): boolean =>
 /**
  * Fast-forwards one repo, never merging or forcing, and reports what changed.
  * `path` is the folder as it is run; `repo` is how it is named to the person.
+ * `wait` pauses between tries of a pull that clashed with another session's.
  */
-export const syncRepo = async (run: Run, path: string, repo: string, watch: readonly string[]): Promise<Outcome> => {
+export const syncRepo = async (
+  run: Run,
+  path: string,
+  repo: string,
+  watch: readonly string[],
+  wait: (ms: number) => Promise<void> = async () => {},
+): Promise<Outcome> => {
   const git = (...args: string[]) => run(['git', '-C', path, ...args])
   const head = async () => {
     const r = await git('rev-parse', 'HEAD')
@@ -65,9 +79,15 @@ export const syncRepo = async (run: Run, path: string, repo: string, watch: read
     const from = await head()
     if (from === null) return { kind: 'failed', repo, reason: 'not a git repository' }
 
-    const pull = await git('pull', '--ff-only', '--quiet')
+    // HEAD is read once, before the first try: what another session's pull brought in still
+    // counts as changed here, so Claude hears about it.
+    let pull = await git('pull', '--ff-only', '--quiet')
+    for (let tries = 1; pull.exitCode !== 0 && isClash(pull.stderr) && tries < PULL_TRIES; tries++) {
+      await wait(retryDelayMs())
+      pull = await git('pull', '--ff-only', '--quiet')
+    }
     if (pull.exitCode !== 0) {
-      return isLocked(pull.stderr) ? { kind: 'busy', repo } : { kind: 'failed', repo, reason: firstLine(pull.stderr) }
+      return isClash(pull.stderr) ? { kind: 'busy', repo } : { kind: 'failed', repo, reason: firstLine(pull.stderr) }
     }
 
     const to = (await head()) ?? from

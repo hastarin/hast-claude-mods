@@ -22,7 +22,10 @@ const syncAll = async ($: EngineInterface, options: Record<string, unknown>): Pr
   const run = (argv: readonly string[]) =>
     $.process.run(argv, { timeoutMs: limit, env: { GIT_TERMINAL_PROMPT: '0' } })
 
-  const outcomes = await Promise.all(repos.map(r => syncRepo(run, expandHome(r, home), r, watch)))
+  // A wait that fails only cuts the pause short; the next try still runs.
+  const wait = (ms: number) => $.clock.sleep(ms).catch(() => undefined)
+
+  const outcomes = await Promise.all(repos.map(r => syncRepo(run, expandHome(r, home), r, watch, wait)))
   note = noteText(outcomes)
   // Remembered for `/repo-sync`; a store that fails never loses the sync itself.
   try {

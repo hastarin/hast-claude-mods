@@ -13,7 +13,7 @@ It never merges, rebases or forces.
 | A watched file changed (`AGENTS.md`, `CLAUDE.md` by default) | The same toast | That the file changed and the copy it loaded may be stale, so it should re-read it |
 | The pull failed (offline, diverged history, local changes in the way) | A toast with git's reason | That the repo could not be pulled, so files from it may be out of date |
 | Local commits not pushed yet | A toast with the count | The count, so it can remind you |
-| Another session is pulling the same repo | Nothing | Nothing |
+| Another session is pulling the same repo at the same moment | It tries again a few times over a few seconds, then says what the other pull brought in, as if it had pulled it; nothing if it never gets through | The same |
 
 Claude Code may load `AGENTS.md` or `CLAUDE.md` before the pull finishes.
 So instead of relying on load order, the mod adds its note to the system prompt, and the first prompt waits for the pulls to finish (at most the timeout).

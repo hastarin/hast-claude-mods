@@ -5,9 +5,12 @@ import { type Run, ago, expandHome, noteText, parseList, statusLine, statusText,
 const OLD = '1111111aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 const NEW = '2222222bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
 
+type Pull = { exitCode: number; stderr?: string }
+
 /** A git that answers each subcommand from a table; HEAD moves after a pull. */
 const fakeGit = (answers: {
-  pull?: { exitCode: number; stderr?: string }
+  // One answer for every pull, or one per pull in turn, the last repeating.
+  pull?: Pull | Pull[]
   moves?: boolean
   ahead?: string
   diff?: string
@@ -15,6 +18,7 @@ const fakeGit = (answers: {
 }): { run: Run; calls: string[][] } => {
   const calls: string[][] = []
   let pulled = false
+  let pulls = 0
   const run: Run = async argv => {
     calls.push([...argv])
     const sub = argv[3]
@@ -23,8 +27,12 @@ const fakeGit = (answers: {
       return { exitCode: 0, stdout: `${pulled && answers.moves === true ? NEW : OLD}\n`, stderr: '' }
     }
     if (sub === 'pull') {
+      const list = Array.isArray(answers.pull) ? answers.pull : [answers.pull ?? { exitCode: 0 }]
+      const answer = list[Math.min(pulls, list.length - 1)] ?? { exitCode: 0 }
+      pulls++
+      // Another session's pull moved HEAD even when this one clashed with it.
       pulled = true
-      return { exitCode: answers.pull?.exitCode ?? 0, stdout: '', stderr: answers.pull?.stderr ?? '' }
+      return { exitCode: answer.exitCode, stdout: '', stderr: answer.stderr ?? '' }
     }
     if (sub === 'rev-list') {
       return answers.ahead === undefined
@@ -108,12 +116,56 @@ test('a diverged or offline pull is reported, never forced', async () => {
   expect(calls.some(c => c.includes('--force') || c.includes('reset'))).toBe(false)
 })
 
-test('another session holding the lock is not an error', async () => {
-  const { run } = fakeGit({ pull: { exitCode: 128, stderr: "fatal: Unable to create '/r/.git/index.lock': File exists." } })
-  const o = await syncRepo(run, '/r', '~/r', WATCH)
+const LOCKED = { exitCode: 128, stderr: "fatal: Unable to create '/r/.git/index.lock': File exists." }
+const RACED = { exitCode: 128, stderr: 'fatal: Cannot fast-forward to multiple branches.\n' }
+
+/** A wait that returns at once and remembers how long it was asked for. */
+const fakeWait = () => {
+  const waits: number[] = []
+  const wait = async (ms: number) => {
+    waits.push(ms)
+  }
+
+  return { wait, waits }
+}
+
+test('another session holding the lock is not an error, after a few tries', async () => {
+  const { run, calls } = fakeGit({ pull: LOCKED })
+  const { wait, waits } = fakeWait()
+  const o = await syncRepo(run, '/r', '~/r', WATCH, wait)
   expect(o).toEqual({ kind: 'busy', repo: '~/r' })
   expect(toastText(o)).toBe(null)
   expect(noteText([o])).toBe(null)
+  expect(calls.filter(c => c[3] === 'pull').length).toBe(3)
+  expect(waits.length).toBe(2)
+})
+
+test('a pull that clashed with another session tries again, and still tells Claude what changed', async () => {
+  const { run, calls } = fakeGit({ pull: [RACED, { exitCode: 0 }], moves: true, ahead: '0', diff: 'AGENTS.md\n' })
+  const { wait, waits } = fakeWait()
+  const o = await syncRepo(run, '/home/jon/.agents', '~/.agents', WATCH, wait)
+  expect(o).toEqual({ kind: 'updated', repo: '~/.agents', from: '1111111', to: '2222222', changed: ['AGENTS.md'], ahead: 0 })
+  expect(noteText([o])).toMatch(/~\/\.agents\/AGENTS\.md changed .* re-read it/)
+  expect(calls.filter(c => c[3] === 'pull').length).toBe(2)
+  // Spread out, so two sessions that clashed do not try again in step.
+  expect(waits.length).toBe(1)
+  expect(waits[0]).toBeGreaterThanOrEqual(500)
+  expect(waits[0]).toBeLessThanOrEqual(1500)
+})
+
+test('a clash that never clears is busy, not a failure', async () => {
+  const { run } = fakeGit({ pull: RACED })
+  const o = await syncRepo(run, '/r', '~/r', WATCH, fakeWait().wait)
+  expect(o).toEqual({ kind: 'busy', repo: '~/r' })
+  expect(toastText(o)).toBe(null)
+})
+
+test('a real failure is not tried again', async () => {
+  const { run, calls } = fakeGit({ pull: { exitCode: 128, stderr: 'fatal: Not possible to fast-forward, aborting.\n' } })
+  const { wait, waits } = fakeWait()
+  await syncRepo(run, '/r', '~/r', WATCH, wait)
+  expect(calls.filter(c => c[3] === 'pull').length).toBe(1)
+  expect(waits).toEqual([])
 })
 
 test('a folder that is not a repo, or git that will not start, is a failure', async () => {

@@ -1,6 +1,6 @@
 {
   "name": "repo-sync",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Fast-forwards the git repos you list at session start, and tells Claude when an instructions file such as AGENTS.md changed under it",
   "author": { "name": "hastarin" },
   "userConfig": {
