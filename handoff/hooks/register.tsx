@@ -18,7 +18,7 @@ type Options = { thresholdK: number; instructionsFile: string; compactFirst: boo
 type Prepared = { file: string; saved: string }
 type Action = Verb | 'ask'
 
-const NAMES = ['handoff', 'hast-handoff']
+const NAMES = ['handoff', 'hast-handoff'] as const
 
 // What runs now, drawn in place of the buttons, so a second press cannot start another.
 let busy: string | null = null
@@ -208,7 +208,8 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => next(e))
 
   // Answers only the name this mod holds: another plugin's or a skill's command is left to it.
-  on('command.run', async ($, e, next) => {
+  // The matcher keeps this hook out of other commands' runs, so their output is not credited to it.
+  on('command.run', { command: NAMES }, async ($, e, next) => {
     if (owned === null || e.command !== owned) return next(e)
     const { verb, note } = parseArgs(e.args)
     if (verb === 'help') return { text: usage(owned, (await $.session.usage()).context.tokens) }
