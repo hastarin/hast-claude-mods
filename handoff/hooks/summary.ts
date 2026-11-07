@@ -1,7 +1,10 @@
 // Pure helpers: the summary's text, the saved file and the prompts built from it.
 
-/** What the summary covers, unless the person names a file of their own. */
-export const INSTRUCTIONS = [
+/**
+ * What a summary written without compacting covers. A compaction needs none: the engine's own
+ * prompt runs, and anything passed to it is added on top.
+ */
+export const FORK_INSTRUCTIONS = [
   'Write this summary as a handoff to a fresh session that has none of this conversation.',
   'Cover, under headings: what was done and what is next; decisions made and constraints to keep;',
   'files touched, with their paths; open questions.',

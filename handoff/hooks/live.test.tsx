@@ -23,6 +23,8 @@ type World = {
   submitted: string[]
   filled: string[]
   copied: string[]
+  // What each compaction was asked to keep: the hook's `instructions`, or `/compact`'s args.
+  asked: (string | undefined)[]
 }
 
 /** The engine beneath the mod: one session that a clear swaps for another. */
@@ -37,7 +39,7 @@ const world = (
     const { Box, Text } = $.ui.resolve(e)
     return o.below === undefined ? <Box /> : <Text>{o.below}</Text>
   })
-  const w: World = { clock, files: {}, toasts: [], steps: [], submitted: [], filled: [], copied: [] }
+  const w: World = { clock, files: {}, toasts: [], steps: [], submitted: [], filled: [], copied: [], asked: [] }
   let id = 'old'
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('command.register', (_$, e) => {
@@ -65,8 +67,9 @@ const world = (
     return { value: text } as never
   })
   const compacted = { messages: [{ role: 'user', text: o.summary ?? RAW, toolUses: [] }], tokensBefore: 250_000, tokensAfter: 9_000 }
-  on('session.compact', () => {
+  on('session.compact', (_$, e) => {
     w.steps.push('compact')
+    w.asked.push(e.instructions)
     return compacted as never
   })
   on('command.run', async ($, e) => {
@@ -74,6 +77,7 @@ const world = (
     if (e.command === 'clear') id = 'new'
     // The kit cannot raise the compaction from here, so `/compact` reports it did not run,
     // as it does in a session too short to compact. The live check covers the rest.
+    if (e.command === 'compact') w.asked.push(e.args)
     if (e.command === 'compact') return { text: 'Not enough messages to compact.' }
     return { text: '' }
   })
@@ -152,6 +156,7 @@ test('New session compacts, saves, clears, then sends the cleaned summary', asyn
   await ui.unmount()
 
   expect(w.steps).toEqual(['compact', 'save', '/clear', 'submit'])
+  expect(w.asked).toEqual([undefined])
   const [path] = Object.keys(w.files)
   expect(path).toMatch(/^\/home\/jon\/\.claude\/handoffs\/old-\d{8}-\d{6}\.md$/)
   const seed = w.submitted[0] ?? ''
@@ -183,6 +188,7 @@ test('on the desktop app, /compact is used, and a failure says why and changes n
   await ui.unmount()
 
   expect(w.steps).toEqual(['/compact'])
+  expect(w.asked).toEqual([''])
   expect(w.filled).toEqual([])
   expect(w.toasts).toEqual(['handoff: stopped: Not enough messages to compact.'])
 })
@@ -204,6 +210,7 @@ test('/handoff copy saves the note with the handoff and copies it', async ($, on
   await settle(w, () => w.copied.length > 0)
 
   expect(w.steps).toEqual(['compact', 'save'])
+  expect(w.asked).toEqual(['keep the plan'])
   expect(w.copied[0]).toContain('The codename is BLUEBIRD.')
   expect(w.copied[0]).toContain('## Note\n\nkeep the plan')
   expect(w.toasts.at(-1)).toContain('copied')

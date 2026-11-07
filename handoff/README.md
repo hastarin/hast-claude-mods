@@ -4,14 +4,14 @@ A Claude Code mod that compacts a long session, or hands it off to a new one, in
 Once the context passes a threshold (200k tokens by default), buttons appear above the prompt.
 They stay hidden while Claude is working.
 
-Every summary is written as a handoff: what was done and what is next, decisions and constraints, files touched, open questions, and your own messages that still matter.
+Each summary is written by Claude Code's own `/compact`, so it keeps up with any changes Anthropic makes to it.
 Each one is also saved as a file in `~/.claude/handoffs/`, named after the session and the time.
 
 ## The buttons
 
 | Button | Where | What it does |
 | --- | --- | --- |
-| Compact | everywhere | Compacts this session with the handoff instructions, and saves the summary. |
+| Compact | everywhere | Compacts this session, and saves the summary. |
 | New session | terminal, VS Code | Compacts this session, saves the summary, clears, then sends the summary as the new session's first message. |
 | Copy handoff | desktop app | Compacts this session, saves the summary, and copies the handoff for you to paste into a new session. |
 | Ask Claude for a new session | desktop app | Compacts this session, saves the summary, and puts a request in the prompt box for Claude to start a new session from it. Press Enter to send it. |
@@ -34,7 +34,7 @@ If any step fails, such as an empty summary or a file that cannot be saved, the 
 - `/handoff copy [note]` copies the handoff.
 - `/handoff` on its own lists these and says how full the context is.
 
-A note is added to the summary instructions and saved with the summary, such as `/handoff new focus on the failing test`.
+A note tells the summary what to focus on, as it would after `/compact`, and is saved with the summary, such as `/handoff new focus on the failing test`.
 
 If another mod or a skill already uses `/handoff`, the mod takes `/hast-handoff` instead and a toast says so.
 
@@ -61,7 +61,6 @@ Change these in the config menu, or under `pluginConfigs` in `~/.claude/settings
 | Setting | Default | What it does |
 | --- | --- | --- |
 | `thresholdK` | 200 | The buttons appear from this many thousand tokens. Enter 0 to go back to 200. |
-| `instructionsFile` | empty | A text file of your own summary instructions, used in place of the mod's. |
 | `compactFirst` | on | New session compacts the old one first, so resuming it later loads from the summary. Turned off, the summary is written without changing the old session. |
 | `folder` | `~/.claude/handoffs` | Where the summaries are saved. |
 
@@ -75,8 +74,17 @@ Change these in the config menu, or under `pluginConfigs` in `~/.claude/settings
 }
 ```
 
+## Steering every summary
+
+To change what every summary keeps, add a `# Compact instructions` section to your `CLAUDE.md`.
+Claude Code reads it on every compaction, including plain `/compact` and auto-compact, not just this mod's.
+See [Manage context proactively](https://code.claude.com/docs/en/costs#manage-context-proactively) in the Claude Code docs.
+
+With **New session: compact the old one first** turned off, the summary is written without `/compact`.
+The mod then asks for a handoff of its own: what was done and what is next, decisions and constraints, files touched, open questions, and your own messages that still matter.
+
 ## Good to know
 
-- In the desktop app and VS Code the mod runs `/compact` for you, so the instructions show in the conversation as a prompt from the mod.
+- In the desktop app and VS Code the mod runs `/compact` for you, so it shows in the conversation as a command from the mod, with your note when you give one.
 - The summaries can hold anything the conversation did, so treat the handoffs folder as you would the transcripts themselves.
 - The mod has no skill: Claude never compacts or clears a session on its own through it.

@@ -1,7 +1,7 @@
 import type { EngineInterface, Register, RenderSurface } from 'claude-code'
 
 import {
-  INSTRUCTIONS,
+  FORK_INSTRUCTIONS,
   type Verb,
   askText,
   cleanSummary,
@@ -14,7 +14,7 @@ import {
   withNote,
 } from './summary'
 
-type Options = { thresholdK: number; instructionsFile: string; compactFirst: boolean; folder: string }
+type Options = { thresholdK: number; compactFirst: boolean; folder: string }
 type Prepared = { file: string; saved: string }
 type Action = Verb | 'ask'
 
@@ -35,7 +35,6 @@ const reason = (err: unknown): string => (err instanceof Error ? err.message : S
 
 const readOptions = (options: Record<string, unknown>): Options => ({
   thresholdK: typeof options.thresholdK === 'number' && options.thresholdK > 0 ? options.thresholdK : 200,
-  instructionsFile: typeof options.instructionsFile === 'string' ? options.instructionsFile.trim() : '',
   compactFirst: options.compactFirst !== false,
   folder: typeof options.folder === 'string' && options.folder.trim() !== '' ? options.folder.trim() : '~/.claude/handoffs',
 })
@@ -47,10 +46,13 @@ const homeOf = async ($: EngineInterface): Promise<string | undefined> =>
 const summaryOf = (messages: readonly { role: string; text: string }[]): string =>
   messages.find(m => m.role === 'user' && m.text.trim() !== '')?.text ?? ''
 
-/** Compacts the session and returns the summary as the engine wrote it. */
-const compactNow = async ($: EngineInterface, instructions: string): Promise<string> => {
+/**
+ * Compacts the session with the engine's own prompt, plus the note when there is one,
+ * and returns the summary as the engine wrote it.
+ */
+const compactNow = async ($: EngineInterface, note: string): Promise<string> => {
   if (interactive) {
-    const r = await $.session.compact({ instructions })
+    const r = await $.session.compact(note === '' ? {} : { instructions: note })
     if (r.skip !== undefined) throw new Error(r.skip)
 
     return summaryOf(r.messages)
@@ -59,7 +61,7 @@ const compactNow = async ($: EngineInterface, instructions: string): Promise<str
   capturing = true
   let said: string | undefined
   try {
-    said = (await $.command.run({ command: 'compact', args: instructions })).text
+    said = (await $.command.run({ command: 'compact', args: note })).text
   } finally {
     capturing = false
   }
@@ -69,26 +71,17 @@ const compactNow = async ($: EngineInterface, instructions: string): Promise<str
 }
 
 /** A summary without changing the session: one request over its own transcript, from the cache. */
-const forkSummary = async ($: EngineInterface, instructions: string): Promise<string> => {
-  const r = await $.model.fork({ prompt: `${instructions}\nWrite only the summary, in Markdown.` })
+const forkSummary = async ($: EngineInterface, note: string): Promise<string> => {
+  const r = await $.model.fork({ prompt: `${withNote(FORK_INSTRUCTIONS, note)}\nWrite only the summary, in Markdown.` })
   if (!r.isAnswered) throw new Error(`no summary was written (${r.reason})`)
 
   return r.text
 }
 
-const readInstructions = async ($: EngineInterface, o: Options): Promise<string> => {
-  if (o.instructionsFile === '') return INSTRUCTIONS
-  const text = (await $.fs.read(expandHome(o.instructionsFile, await homeOf($)))).trim()
-  if (text === '') throw new Error(`${o.instructionsFile} is empty`)
-
-  return text
-}
-
 /** Writes the summary, saves it and reads it back; throws, leaving the session alone, when any step fails. */
 const prepare = async ($: EngineInterface, o: Options, note: string, compact: boolean): Promise<Prepared> => {
   const sessionId = await $.session.id()
-  const instructions = withNote(await readInstructions($, o), note)
-  const raw = compact ? await compactNow($, instructions) : await forkSummary($, instructions)
+  const raw = compact ? await compactNow($, note) : await forkSummary($, note)
   const { summary, transcript } = cleanSummary(raw)
   if (summary === '') throw new Error('the summary came back empty')
 
@@ -166,7 +159,7 @@ const actionFor = (verb: Verb, surface: RenderSurface | undefined): Action =>
 
 const usage = (name: string, tokens: number | undefined): string =>
   [
-    `/${name} compact [note]: compact now with handoff instructions, and save the summary.`,
+    `/${name} compact [note]: compact now, and save the summary.`,
     `/${name} new [note]: start a new session from the summary (in the desktop app, ask Claude to start one).`,
     `/${name} copy [note]: compact, save, and copy the handoff to paste into a new session.`,
     tokens === undefined ? '' : `The context holds ${Math.round(tokens / 1000)}k tokens.`,
