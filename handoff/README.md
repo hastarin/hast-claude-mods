@@ -6,6 +6,7 @@ They stay hidden while Claude is working.
 
 Each summary is written by Claude Code's own `/compact`, so it keeps up with any changes Anthropic makes to it.
 Each one is also saved as a file in `~/.claude/handoffs/`, named after the session and the time.
+Saved summaries are deleted after 30 days by default; see `keepFor` under [Settings](#settings).
 
 ## The buttons
 
@@ -13,15 +14,14 @@ Each one is also saved as a file in `~/.claude/handoffs/`, named after the sessi
 | --- | --- | --- |
 | Compact | everywhere | Compacts this session, and saves the summary. |
 | New session | terminal, VS Code | Compacts this session, saves the summary, clears, then sends the summary as the new session's first message. |
-| Copy handoff | desktop app | Compacts this session, saves the summary, and copies the handoff for you to paste into a new session. |
-| Ask Claude for a new session | desktop app | Compacts this session, saves the summary, and puts a request in the prompt box for Claude to start a new session from it. Press Enter to send it. |
+| New session | desktop app | Compacts this session, saves the summary, and puts a request in the prompt box for Claude to start a new session from it. Press Enter to send it. |
 
 The new session reads the handoff, says in one line where things stand, and waits for your go-ahead.
 
 The old session is never lost.
 In the terminal it is listed by `claude --resume`, and in VS Code it stays in the session history.
 The desktop app is different: there a clear makes the sidebar entry show the new session, and the old conversation cannot be opened again from the app.
-That is why the desktop app gets Copy handoff and Ask Claude instead of New session.
+That is why New session in the desktop app asks Claude to start a separate session instead of clearing this one.
 
 If any step fails, such as an empty summary or a file that cannot be saved, the mod stops before clearing anything and a toast says why.
 
@@ -31,7 +31,7 @@ If any step fails, such as an empty summary or a file that cannot be saved, the 
 
 - `/handoff compact [note]` compacts now.
 - `/handoff new [note]` starts a new session; in the desktop app it asks Claude to start one.
-- `/handoff copy [note]` copies the handoff.
+- `/handoff copy [note]` copies the handoff, to paste into a new session yourself or take somewhere else.
 - `/handoff` on its own lists these and says how full the context is.
 
 A note tells the summary what to focus on, as it would after `/compact`, and is saved with the summary, such as `/handoff new focus on the failing test`.
@@ -62,6 +62,7 @@ Change these in the config menu, or under `pluginConfigs` in `~/.claude/settings
 | --- | --- | --- |
 | `thresholdK` | 200 | The buttons appear from this many thousand tokens. Enter 0 to go back to 200. |
 | `compactFirst` | on | New session compacts the old one first, so resuming it later loads from the summary. Turned off, the summary is written without changing the old session. |
+| `keepFor` | 30 days | Saved summaries older than this are deleted when a session starts: Never, 1, 2, 7, 14 or 30 days. Only files the mod saved are deleted, so other files in the folder are safe. |
 | `folder` | `~/.claude/handoffs` | Where the summaries are saved. |
 
 ```json

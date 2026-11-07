@@ -2,6 +2,8 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
+import { fileName } from './summary'
+
 const props = { hasSurvey: false, isWorking: false, maxRows: 10, bodyColumns: 100 } as never
 const RAW = [
   'This session is being continued from a previous conversation that ran out of context.',
@@ -25,12 +27,14 @@ type World = {
   copied: string[]
   // What each compaction was asked to keep: the hook's `instructions`, or `/compact`'s args.
   asked: (string | undefined)[]
+  // Each command run on the host: its arguments and the folder it ran in.
+  ran: { argv: string[]; cwd?: string }[]
 }
 
 /** The engine beneath the mod: one session that a clear swaps for another. */
 const world = (
   on: On,
-  o: { tokens?: number; surfaces?: string[]; below?: string; summary?: string; taken?: string[] } = {},
+  o: { tokens?: number; surfaces?: string[]; below?: string; summary?: string; taken?: string[]; files?: Record<string, string>; deleteFails?: string } = {},
 ): World => {
   mock.env(on, { HOME: '/home/jon' })
   const clock = mock.clock(on, { now: Date.UTC(2026, 10, 6, 6, 0, 0) })
@@ -39,7 +43,7 @@ const world = (
     const { Box, Text } = $.ui.resolve(e)
     return o.below === undefined ? <Box /> : <Text>{o.below}</Text>
   })
-  const w: World = { clock, files: {}, toasts: [], steps: [], submitted: [], filled: [], copied: [], asked: [] }
+  const w: World = { clock, files: {}, toasts: [], steps: [], submitted: [], filled: [], copied: [], asked: [], ran: [] }
   let id = 'old'
   on('session.start', (_$, e) => ({ cwd: e.cwd }))
   on('command.register', (_$, e) => {
@@ -60,6 +64,18 @@ const world = (
     w.steps.push('save')
     w.files[norm(e.path)] = e.text
     return { value: undefined } as never
+  })
+  Object.assign(w.files, o.files)
+  on('fs.list', (_$, e) => {
+    const dir = `${norm(e.path ?? '').replace(/\/+$/, '')}/`
+    const names = Object.keys(w.files).filter(p => p.startsWith(dir) && !p.slice(dir.length).includes('/'))
+    if (names.length === 0) throw new Error(`ENOENT: ${dir}`)
+    return { value: names.map(p => ({ name: p.slice(dir.length), kind: 'file', size: 1, mtimeMs: 0, isLink: false })) } as never
+  })
+  on('process.run', (_$, e) => {
+    const { argv, init } = e as unknown as { argv: string[]; init?: { cwd?: string } }
+    w.ran.push({ argv: [...argv], cwd: init?.cwd === undefined ? undefined : norm(init.cwd) })
+    return { value: { exitCode: o.deleteFails === undefined ? 0 : 1, stdout: '', stderr: o.deleteFails ?? '' } } as never
   })
   on('fs.read', (_$, e) => {
     const text = w.files[norm(e.path)]
@@ -134,7 +150,7 @@ test('each surface gets its own buttons', async ($, on) => {
   }
   expect(await labels('terminal')).toEqual(['Compact', 'New session'])
   expect(await labels('vscode')).toEqual(['Compact', 'New session'])
-  expect(await labels('desktop')).toEqual(['Compact', 'Copy handoff', 'Ask Claude for a new session'])
+  expect(await labels('desktop')).toEqual(['Compact', 'New session'])
   expect(await labels('terminal', { ...(props as object), isWorking: true } as never)).toEqual([])
 })
 
@@ -183,7 +199,7 @@ test('on the desktop app, /compact is used, and a failure says why and changes n
   const w = world(on, { surfaces: ['desktop'] })
   await start($, false)
   const ui = await $.ui.mount({ plugin: 'handoff', surface: 'desktop', component: 'AbovePrompt', props })
-  await ui.press({ key: 'handoff-ask' })
+  await ui.press({ key: 'handoff-new' })
   await settle(w, () => w.toasts.length > 0)
   await ui.unmount()
 
@@ -226,4 +242,59 @@ test('when /handoff is taken, the mod uses /hast-handoff and leaves /handoff alo
   const ours = await command($, 'hast-handoff', '')
   expect(ours.text).toContain('/hast-handoff compact')
   expect(ours.text).toContain('250k tokens')
+})
+
+test('New session on the desktop app asks Claude, and never clears', async ($, on) => {
+  const w = world(on, { surfaces: ['desktop'] })
+  await start($)
+  const ui = await $.ui.mount({ plugin: 'handoff', surface: 'desktop', component: 'AbovePrompt', props })
+  await ui.press({ key: 'handoff-new' })
+  await settle(w, () => w.filled.length > 0)
+  await ui.unmount()
+
+  expect(w.steps).toEqual(['compact', 'save'])
+  expect(w.filled[0]).toContain('Start a new session')
+})
+
+const DAY = 86_400_000
+const NOW = Date.UTC(2026, 10, 6, 6, 0, 0)
+const OLD = fileName('f67dee49-1c2a-4b3d-9e8f-0a1b2c3d4e5f', NOW - 40 * DAY)
+const RECENT = fileName('a1b2c3d4-1c2a-4b3d-9e8f-0a1b2c3d4e5f', NOW - 10 * DAY)
+const saved = { [`/home/jon/.claude/handoffs/${OLD}`]: 'x', [`/home/jon/.claude/handoffs/${RECENT}`]: 'x', '/home/jon/.claude/handoffs/notes.md': 'x' }
+
+test('a session start deletes handoffs past 30 days, and nothing else', async ($, on) => {
+  const w = world(on, { files: saved })
+  await start($)
+  await settle(w, () => w.ran.length > 0)
+
+  expect(w.ran).toEqual([{ argv: ['rm', '-f', '--', OLD], cwd: '/home/jon/.claude/handoffs' }])
+})
+
+test('with keepFor Never, nothing is deleted', { options: { keepFor: 'Never' } }, async ($, on) => {
+  const w = world(on, { files: saved })
+  await start($)
+  await settle(w, () => w.ran.length > 0)
+
+  expect(w.ran).toEqual([])
+})
+
+test('many old handoffs are deleted in batches that miss none and repeat none', async ($, on) => {
+  const many: Record<string, string> = {}
+  const names = Array.from({ length: 101 }, (_, i) => fileName(`s${String(i).padStart(3, '0')}`, NOW - (40 + i) * DAY))
+  for (const name of names) many[`/home/jon/.claude/handoffs/${name}`] = 'x'
+  const w = world(on, { files: { ...many, [`/home/jon/.claude/handoffs/${RECENT}`]: 'x' } })
+  await start($)
+  await settle(w, () => w.ran.length >= 3)
+
+  expect(w.ran.map(r => r.argv.length - 3)).toEqual([50, 50, 1])
+  expect(w.ran.flatMap(r => r.argv.slice(3)).sort()).toEqual([...names].sort())
+})
+
+test('a delete that fails says so, and leaves the session running', async ($, on) => {
+  const w = world(on, { files: saved, deleteFails: 'Access is denied.' })
+  await start($)
+  await settle(w, () => w.toasts.length > 0)
+
+  expect(w.ran).toHaveLength(1)
+  expect(w.toasts).toEqual(['handoff: could not delete old summaries: Access is denied.'])
 })

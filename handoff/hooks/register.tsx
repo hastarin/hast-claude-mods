@@ -5,16 +5,19 @@ import {
   type Verb,
   askText,
   cleanSummary,
+  deleteArgv,
   expandHome,
+  expiredHandoffs,
   fileName,
   joinPath,
+  keepDays,
   handoffText,
   parseArgs,
   seedText,
   withNote,
 } from './summary'
 
-type Options = { thresholdK: number; compactFirst: boolean; folder: string }
+type Options = { thresholdK: number; compactFirst: boolean; folder: string; keepDays: number | null }
 type Prepared = { file: string; saved: string }
 type Action = Verb | 'ask'
 
@@ -37,6 +40,7 @@ const readOptions = (options: Record<string, unknown>): Options => ({
   thresholdK: typeof options.thresholdK === 'number' && options.thresholdK > 0 ? options.thresholdK : 200,
   compactFirst: options.compactFirst !== false,
   folder: typeof options.folder === 'string' && options.folder.trim() !== '' ? options.folder.trim() : '~/.claude/handoffs',
+  keepDays: keepDays(options.keepFor),
 })
 
 const homeOf = async ($: EngineInterface): Promise<string | undefined> =>
@@ -93,6 +97,29 @@ const prepare = async ($: EngineInterface, o: Options, note: string, compact: bo
   if (!saved.includes(summary)) throw new Error(`${file} did not read back as written`)
 
   return { file, saved }
+}
+
+/**
+ * Deletes the handoffs saved longer ago than `keepFor`. Only files named as this mod names them
+ * go, so a folder shared with other notes keeps them; the names need no quoting for the command.
+ */
+const cleanUp = async ($: EngineInterface, o: Options): Promise<void> => {
+  if (o.keepDays === null) return
+  const dir = expandHome(o.folder, await homeOf($))
+  let entries
+  try {
+    entries = await $.fs.list(dir)
+  } catch {
+    return // No folder yet: nothing has been saved.
+  }
+  const files = entries.filter(entry => entry.kind === 'file').map(entry => entry.name)
+  const names = expiredHandoffs(files, await $.clock.now(), o.keepDays)
+  const isWindows = (await $.env.get('OS')) === 'Windows_NT'
+  // In batches, so one command line never grows past what Windows takes.
+  for (let i = 0; i < names.length; i += 50) {
+    const r = await $.process.run(deleteArgv(isWindows, names.slice(i, i + 50)), { cwd: dir })
+    if (r.exitCode !== 0) throw new Error(r.stderr.trim() || `the delete exited with ${r.exitCode}`)
+  }
 }
 
 /** Terminal and VS Code: summary, clear, then the summary as the new session's first message. */
@@ -185,6 +212,8 @@ export const register: Register = (on, options) => {
       } catch {}
     }
     const result = await next(e)
+    // Never holds the start, and a failure only leaves old files where they are.
+    void cleanUp($, o).catch(err => $.ui.toast(`handoff: could not delete old summaries: ${reason(err)}`, { timeoutMs: 10000 }))
     if (owned !== NAMES[0]) {
       $.ui.toast(owned === null ? 'handoff: /handoff and /hast-handoff are both taken; use the buttons' : `handoff: /handoff is taken; use /${owned}`)
     }
@@ -224,18 +253,18 @@ export const register: Register = (on, options) => {
     } else {
       const tokens = (await $.session.usage()).context.tokens ?? 0
       if (e.props.isWorking || tokens < o.thresholdK * 1000) return below
-      const press = (action: Action) => (p: { surface: RenderSurface }) => void run($, o, action, '', p.surface)
-      const buttons: [Action, string][] =
-        e.surface === 'desktop'
-          ? [['compact', 'Compact'], ['copy', 'Copy handoff'], ['ask', 'Ask Claude for a new session']]
-          : [['compact', 'Compact'], ['new', 'New session']]
+      const press = (verb: Verb) => (p: { surface: RenderSurface }) => void run($, o, actionFor(verb, p.surface), '', p.surface)
+      const buttons: [Verb, string][] = [
+        ['compact', 'Compact'],
+        ['new', 'New session'],
+      ]
       // A desktop or VS Code button is taller than a line of text: the row keeps a line clear
       // above and below it, so it never rides over another mod's row, whichever is drawn first.
       row = (
         <Box flexDirection="row" gap={1} alignItems="center" marginY={e.surface === 'terminal' ? 0 : 1}>
           <Text dimColor>handoff ({Math.round(tokens / 1000)}k)</Text>
-          {buttons.map(([action, label]) => (
-            <Button key={`handoff-${action}`} label={label} onPress={press(action)} />
+          {buttons.map(([verb, label]) => (
+            <Button key={`handoff-${verb}`} label={label} onPress={press(verb)} />
           ))}
         </Box>
       )

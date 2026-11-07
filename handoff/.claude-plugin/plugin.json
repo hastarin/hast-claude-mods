@@ -1,6 +1,6 @@
 {
   "name": "handoff",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "One-click compact or handoff to a new session once the context passes a threshold, with summaries saved to disk",
   "author": { "name": "hastarin" },
   "userConfig": {
@@ -16,6 +16,13 @@
       "title": "New session: compact the old one first",
       "description": "Compacts the old session before starting the new one, so resuming it later loads from the summary. Turned off, the summary is written without changing the old session.",
       "default": true
+    },
+    "keepFor": {
+      "type": "string",
+      "title": "Delete saved summaries after",
+      "description": "Saved summaries older than this are deleted when a session starts. Only files the mod saved are touched.",
+      "options": ["Never", "1 day", "2 days", "7 days", "14 days", "30 days"],
+      "default": "30 days"
     },
     "folder": {
       "type": "string",

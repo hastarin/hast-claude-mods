@@ -1,6 +1,19 @@
 import { describe, expect, test } from 'claude-code/testing'
 
-import { askText, cleanSummary, expandHome, fileName, handoffText, joinPath, parseArgs, seedText, withNote } from './summary'
+import {
+  askText,
+  cleanSummary,
+  deleteArgv,
+  expandHome,
+  expiredHandoffs,
+  fileName,
+  handoffText,
+  joinPath,
+  keepDays,
+  parseArgs,
+  seedText,
+  withNote,
+} from './summary'
 
 // The shape the engine wrote in Claude Code 2.1.318, cut down.
 const RAW = [
@@ -82,6 +95,32 @@ test("a file joins its folder with the folder's separator", () => {
 test('file names start with the session and sort by time', () => {
   const name = fileName('abc', new Date(2026, 10, 6, 17, 5, 9).getTime())
   expect(name).toBe('abc-20261106-170509.md')
+})
+
+describe('old handoffs', () => {
+  const DAY = 86_400_000
+  const now = new Date(2026, 10, 6, 12, 0, 0).getTime()
+
+  test('keepFor reads as days, and Never or anything unreadable keeps every file', () => {
+    expect(keepDays('30 days')).toBe(30)
+    expect(keepDays('1 day')).toBe(1)
+    expect(keepDays('Never')).toBeNull()
+    expect(keepDays('0 days')).toBeNull()
+    expect(keepDays('soon')).toBeNull()
+    expect(keepDays(undefined)).toBeNull()
+  })
+
+  test('only handoff files older than the limit are picked, by the time in their names', () => {
+    const old = fileName('f67dee49-1c2a-4b3d-9e8f-0a1b2c3d4e5f', now - 31 * DAY)
+    const recent = fileName('a1b2c3d4-1c2a-4b3d-9e8f-0a1b2c3d4e5f', now - 29 * DAY)
+    const names = [old, recent, 'notes.md', 'old-20200101-000000.txt', 'x-2020-01-01.md']
+    expect(expiredHandoffs(names, now, 30)).toEqual([old])
+  })
+
+  test('the delete runs without a shell, one command per platform', () => {
+    expect(deleteArgv(false, ['a.md', 'b.md'])).toEqual(['rm', '-f', '--', 'a.md', 'b.md'])
+    expect(deleteArgv(true, ['a.md'])).toEqual(['cmd', '/d', '/c', 'del', '/q', '/f', 'a.md'])
+  })
 })
 
 test('the saved file says how to get back to the old session', () => {

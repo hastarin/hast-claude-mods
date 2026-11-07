@@ -73,6 +73,40 @@ export const cleanSummary = (raw: string): { summary: string; transcript: string
   return { summary: text.trim(), transcript }
 }
 
+const DAY_MS = 86_400_000
+
+/** `keepFor` in days: `"30 days"` is 30; `"Never"`, or anything unreadable, keeps every file. */
+export const keepDays = (value: unknown): number | null => {
+  const m = typeof value === 'string' ? /^\s*(\d+)\s+days?\s*$/i.exec(value) : null
+  const days = m === null ? 0 : Number(m[1])
+
+  return days > 0 ? days : null
+}
+
+// A name `fileName` writes: the session id, then the date and time it was saved.
+const SAVED_NAME = /^[0-9A-Za-z][0-9A-Za-z-]*-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})\.md$/
+
+/** When a handoff was saved, read from its name in local time; null for any file the mod did not name. */
+const savedAtOf = (name: string): number | null => {
+  const m = SAVED_NAME.exec(name)
+  if (m === null) return null
+  const [y = 0, mo = 1, d = 1, h = 0, mi = 0, s = 0] = m.slice(1).map(Number)
+
+  return new Date(y, mo - 1, d, h, mi, s).getTime()
+}
+
+/** The handoffs saved more than `days` ago; every file the mod did not name is left out. */
+export const expiredHandoffs = (names: readonly string[], now: number, days: number): string[] =>
+  names.filter(name => {
+    const at = savedAtOf(name)
+
+    return at !== null && at < now - days * DAY_MS
+  })
+
+/** The command that deletes `names` from the folder it runs in, with no shell between. */
+export const deleteArgv = (isWindows: boolean, names: readonly string[]): string[] =>
+  isWindows ? ['cmd', '/d', '/c', 'del', '/q', '/f', ...names] : ['rm', '-f', '--', ...names]
+
 export type Handoff = {
   sessionId: string
   cwd: string
