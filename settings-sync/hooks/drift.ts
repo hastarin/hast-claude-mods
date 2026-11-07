@@ -105,6 +105,42 @@ export const promote = (shared: Settings, items: readonly Item[]): Settings => {
   return out
 }
 
+/** `settings` with the items taken out: values deleted, list entries removed, emptied parents pruned. */
+export const demote = (settings: Settings, items: readonly Item[]): Settings => {
+  const out = structuredClone(settings) as Record<string, unknown>
+  for (const item of items) {
+    const chain: Record<string, unknown>[] = [out]
+    for (const k of item.path.slice(0, -1)) {
+      const next = chain[chain.length - 1]?.[k]
+      if (!isPlain(next)) break
+      chain.push(next as Record<string, unknown>)
+    }
+    if (chain.length !== item.path.length) continue
+    const last = item.path[item.path.length - 1] ?? ''
+    const node = chain[chain.length - 1] as Record<string, unknown>
+    if (item.kind === 'value') delete node[last]
+    else if (Array.isArray(node[last])) {
+      const kept = (node[last] as unknown[]).filter(x => !same(x, item.value))
+      if (kept.length > 0) node[last] = kept
+      else delete node[last]
+    }
+    // A parent left empty goes too, so no bare `{}` stays behind.
+    for (let i = chain.length - 1; i > 0; i--) {
+      const parent = chain[i - 1] as Record<string, unknown>
+      if (Object.keys(chain[i] as object).length > 0) break
+      delete parent[item.path[i - 1] ?? '']
+    }
+  }
+
+  return out
+}
+
+/** Why an item cannot be deleted from this machine, or null when it can. */
+export const keepReason = (item: Item): string | null =>
+  item.kind === 'value' && item.shared !== undefined
+    ? `${item.path.join('.')} is set by the shared file, which would put it back; change it there instead`
+    : null
+
 const show = (v: unknown): string => {
   const text = v === undefined ? 'unset' : JSON.stringify(v)
 

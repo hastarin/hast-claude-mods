@@ -1,6 +1,6 @@
 import type { EngineInterface, Register } from 'claude-code'
 
-import { type Item, type Path, drift, omit, parsePaths, promote, refusal, report, withOwnSkip } from './drift'
+import { type Item, type Path, demote, drift, keepReason, line, omit, parsePaths, promote, refusal, report, withOwnSkip } from './drift'
 import { type Settings, apply, changedKeys, expandHome, isPlain, parseSettings } from './merge'
 import { type Last, type Outcome, asLast, outcomeText, statusText } from './status'
 
@@ -153,24 +153,82 @@ const showDrift = async ($: EngineInterface, file: string, skip: readonly Path[]
   return report(shown, file)
 }
 
-/** `/settings-sync add 2 5`: copies items of the last report into the shared file. */
-const addItems = async ($: EngineInterface, file: string, skip: readonly Path[], args: string[]): Promise<string> => {
-  if (shown === null) return 'Run /settings-sync first, then add items by their numbers.'
+type Picked = { kind: 'ok'; items: Item[]; files: Extract<Files, { kind: 'ok' }> } | { kind: 'no'; text: string }
+
+/** The items of the last report that `args` number, or why they cannot be used. */
+const pick = async ($: EngineInterface, file: string, skip: readonly Path[], args: string[], verb: string): Promise<Picked> => {
+  if (shown === null) return { kind: 'no', text: `Run /settings-sync first, then ${verb} items by their numbers.` }
   const numbers = args.map(Number)
   const bad = args.filter((a, i) => !Number.isInteger(numbers[i]) || (numbers[i] ?? 0) < 1 || (numbers[i] ?? 0) > (shown?.length ?? 0))
   if (args.length === 0 || bad.length > 0) {
-    return `Give item numbers from 1 to ${shown.length}${bad.length > 0 ? `, not ${bad.join(', ')}` : ''}.`
+    return { kind: 'no', text: `Give item numbers from 1 to ${shown.length}${bad.length > 0 ? `, not ${bad.join(', ')}` : ''}.` }
   }
 
   const files = await readFiles($, file, skip)
-  if (files.kind === 'failed') return `Cannot add: ${files.reason}`
+  if (files.kind === 'failed') return { kind: 'no', text: `Cannot ${verb}: ${files.reason}` }
   // The files changed since the report: its numbers may point at something else now.
   if (JSON.stringify(drift(files.shared, files.own, files.skip)) !== JSON.stringify(shown)) {
     shown = null
-    return 'The settings changed since the last report. Run /settings-sync again, then add by the new numbers.'
+    return { kind: 'no', text: `The settings changed since the last report. Run /settings-sync again, then ${verb} by the new numbers.` }
   }
 
-  const items = [...new Set(numbers)].map(n => shown?.[n - 1]).filter((i): i is Item => i !== undefined)
+  return { kind: 'ok', items: [...new Set(numbers)].map(n => shown?.[n - 1]).filter((i): i is Item => i !== undefined), files }
+}
+
+/** `/settings-sync explain 2`: has Claude say what items do and whether to keep, delete or share them. */
+const explainItems = async (
+  $: EngineInterface,
+  file: string,
+  skip: readonly Path[],
+  args: string[],
+): Promise<{ text: string; context?: string[] }> => {
+  const picked = await pick($, file, skip, args, 'explain')
+  if (picked.kind === 'no') return { text: picked.text }
+  const prompt = [
+    `Explain these Claude Code settings from this machine's settings.json, which ${file} does not have:`,
+    ...picked.items.map((item, i) => line(i + 1, item)),
+    'For each: what it does, whether this machine still needs it, and whether to leave it here, delete it (/settings-sync del), or share it (/settings-sync add).',
+    'Be brief.',
+  ].join('\n')
+  try {
+    const reply = await $.model.fork({ prompt })
+    if (reply.isAnswered && reply.text.trim() !== '') return { text: reply.text.trim(), context: [reply.text.trim()] }
+  } catch {}
+
+  // No side answer to give (nothing to fork yet, say): leave the question for Claude's next turn.
+  return { text: 'Claude could not answer here; ask it to explain those settings.', context: [prompt] }
+}
+
+/** `/settings-sync del 2 [confirm]`: takes items out of this machine's settings.json, after a confirmation. */
+const deleteItems = async ($: EngineInterface, file: string, skip: readonly Path[], args: string[]): Promise<string> => {
+  const confirmed = args.at(-1) === 'confirm'
+  const numbers = confirmed ? args.slice(0, -1) : args
+  const picked = await pick($, file, skip, numbers, 'delete')
+  if (picked.kind === 'no') return picked.text
+  const { items, files } = picked
+  const kept = items.map(keepReason).filter((r): r is string => r !== null)
+  if (kept.length > 0) return `Nothing deleted: ${kept.join('; ')}.`
+
+  if (!confirmed) {
+    return [
+      "This would take out of this machine's settings.json:",
+      ...items.map(i => `  ${line(1, i).replace(/^1\. /, '')}`),
+      `Run /settings-sync del ${[...new Set(numbers)].join(' ')} confirm to do it (the old file is saved as settings.json.settings-sync.bak).`,
+    ].join('\n')
+  }
+
+  await $.fs.write(`${files.target}.settings-sync.bak`, files.ownText)
+  await $.fs.write(files.target, `${JSON.stringify(demote(JSON.parse(files.ownText) as Settings, items), null, 2)}\n`)
+  shown = null
+
+  return `Deleted ${items.map(i => i.path.join('.')).join(', ')} from settings.json. Run /settings-sync for a fresh list.`
+}
+
+/** `/settings-sync add 2 5`: copies items of the last report into the shared file. */
+const addItems = async ($: EngineInterface, file: string, skip: readonly Path[], args: string[]): Promise<string> => {
+  const picked = await pick($, file, skip, args, 'add')
+  if (picked.kind === 'no') return picked.text
+  const { items, files } = picked
   const refused = items.map(refusal).filter((r): r is string => r !== null)
   if (refused.length > 0) return `Nothing added: ${refused.join('; ')}.`
 
@@ -190,8 +248,8 @@ export const register: Register = (on, options) => {
     try {
       await $.command.register({
         name: COMMAND,
-        description: 'Show settings this machine has that the shared settings file lacks, copy them across, or sync now',
-        argumentHint: '[add <numbers> | status | now]',
+        description: 'Show settings this machine has that the shared settings file lacks, copy, explain or delete them, or sync now',
+        argumentHint: '[add <numbers> | explain <numbers> | del <numbers> | status | now]',
       })
     } catch {}
     const result = await next(e)
@@ -219,14 +277,17 @@ export const register: Register = (on, options) => {
   on('command.run', { command: COMMAND }, async ($, e) => {
     const [verb = '', ...rest] = e.args.trim().split(/[\s,]+/).filter(a => a !== '')
     let text: string
+    let context: string[] | undefined
     if (file === '') text = 'Set the shared settings file in the mod\'s settings first.'
     else if (verb === '') text = await showDrift($, file, skip)
     else if (verb === 'add') text = await addItems($, file, skip, rest)
+    else if (verb === 'explain') ({ text, context } = await explainItems($, file, skip, rest))
+    else if (verb === 'del') text = await deleteItems($, file, skip, rest)
     else if (verb === 'status') text = await showStatus($, file)
     else if (verb === 'now') text = `Synced just now: ${outcomeText(await syncNow($, file, skip), file)}`
-    else text = 'Usage: /settings-sync to list what this machine has that the shared file lacks, /settings-sync add <numbers> to copy items into it, /settings-sync status to see what the last sync did, /settings-sync now to sync again.'
+    else text = 'Usage: /settings-sync to list what this machine has that the shared file lacks, /settings-sync add <numbers> to copy items into it, /settings-sync explain <numbers> to have Claude explain them, /settings-sync del <numbers> to take them out of this machine\'s settings.json, /settings-sync status to see what the last sync did, /settings-sync now to sync again.'
 
     // Claude reads it too, so it can help choose what to share.
-    return { text, context: [text] }
+    return { text, context: context ?? [text] }
   }).catch((_$, _e, next) => (next.called ? next(_e) : { text: 'The command failed; see the debug log.' }))
 }

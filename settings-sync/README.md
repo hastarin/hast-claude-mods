@@ -114,6 +114,14 @@ It writes only the shared file, and never commits or pushes it, so you can check
 It refuses an `env` variable whose name looks like a secret (`TOKEN`, `SECRET`, `PASSWORD`, `API_KEY` and so on).
 Claude sees the report too, so you can ask it to help choose what to share.
 
+Two more commands take the same numbers:
+
+- `/settings-sync explain 2 3` has Claude say what those settings do, whether this machine still needs them, and whether to keep, delete or share each.
+- `/settings-sync del 2` takes an item out of this machine's `settings.json`: a value is deleted, and a list entry is removed from its list.
+  It first says what it would remove; run the command it shows, ending in `confirm`, to go ahead.
+  The old file is saved as `settings.json.settings-sync.bak`.
+  It refuses a value the shared file sets, since the next session would put it back; change that in the shared file instead.
+
 ## Development
 
 From this folder (`settings-sync/`):

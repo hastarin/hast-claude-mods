@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { drift, line, omit, parsePaths, promote, refusal, report } from './drift'
+import { demote, drift, keepReason, line, omit, parsePaths, promote, refusal, report } from './drift'
 import { apply } from './merge'
 
 test('skip paths split on commas and newlines, with dots reaching inside', () => {
@@ -44,6 +44,21 @@ test('promote copies values and list entries into the shared file, keeping what 
   expect(shared.permissions.allow).toEqual(['A'])
   // Once copied, nothing is left to list.
   expect(drift(promote(shared, items), { voice: { enabled: false }, permissions: { allow: ['A', 'Mine'] } })).toEqual([])
+})
+
+test('demote takes out values and list entries, pruning what it empties', () => {
+  const own = { theme: 'light', voice: { enabled: true }, permissions: { allow: ['A', 'Mine'] }, env: { X: '1' } }
+  const items = drift({ permissions: { allow: ['A'] } }, own)
+  expect(demote(own, items)).toEqual({ permissions: { allow: ['A'] } })
+  expect(own.permissions.allow).toEqual(['A', 'Mine'])
+  expect(demote({ permissions: { allow: ['Mine'] } }, drift({}, { permissions: { allow: ['Mine'] } }))).toEqual({})
+})
+
+test('a value the shared file sets cannot be deleted here', () => {
+  const [item] = drift({ theme: 'dark' }, { theme: 'light' })
+  expect(item && keepReason(item)).toMatch(/theme is set by the shared file/)
+  const [only] = drift({}, { theme: 'light' })
+  expect(only && keepReason(only)).toBeNull()
 })
 
 test('an env variable whose name looks like a secret is refused', () => {

@@ -203,6 +203,57 @@ test('add refuses when the settings changed since the report, and refuses secret
   expect((await run($, 'add 1')).text).toMatch(/changed since the last report/)
 })
 
+test('del asks first, then takes the item out of settings.json with a backup', { options: FILE }, async ($, on) => {
+  const own = { theme: 'light', permissions: { allow: ['A', 'Mine'] } }
+  const { files } = world(on, { [SHARED]: json({ permissions: { allow: ['A'] } }), [OWN]: json(own) })
+  await start($)
+  await run($, '')
+
+  const asked = await run($, 'del 1')
+  expect(asked.text).toMatch(/^This would take out of this machine's settings\.json:\n {2}theme: "light"\nRun \/settings-sync del 1 confirm/)
+  expect(JSON.parse(files[OWN] ?? '')).toEqual(own)
+
+  const done = await run($, 'del 1 confirm')
+  expect(done.text).toMatch(/^Deleted theme from settings\.json/)
+  expect(JSON.parse(files[OWN] ?? '')).toEqual({ permissions: { allow: ['A', 'Mine'] } })
+  expect(files[`${OWN}.settings-sync.bak`]).toBe(json(own))
+  // The numbers were used up.
+  expect((await run($, 'del 1 confirm')).text).toMatch(/^Run \/settings-sync first/)
+})
+
+test('del refuses a value the shared file would put back', { options: FILE }, async ($, on) => {
+  const { files } = world(on, { [SHARED]: json({ theme: 'dark' }), [OWN]: json({ theme: 'light' }) })
+  await start($)
+  // The start-up sync already made them agree, so set it differently again.
+  files[OWN] = json({ theme: 'light' })
+  await run($, '')
+  expect((await run($, 'del 1 confirm')).text).toMatch(/Nothing deleted: theme is set by the shared file/)
+})
+
+test('explain has Claude answer about the numbered items, falling back to its next turn', { options: FILE }, async ($, on) => {
+  world(on, { [SHARED]: json({}), [OWN]: json({ theme: 'light' }) })
+  const usage = { input_tokens: 1, output_tokens: 1 }
+  const prompts: string[] = []
+  let answer = true
+  on('model.fork', (_$, e) => {
+    prompts.push(e.prompt)
+
+    return { value: answer ? { isAnswered: true, text: 'Sets the theme. Keep it.', usage } : { isAnswered: false, reason: 'nothing-to-fork' } } as never
+  })
+  await start($)
+  await run($, '')
+
+  const answered = await run($, 'explain 1')
+  expect(answered.text).toBe('Sets the theme. Keep it.')
+  expect(answered.context).toEqual(['Sets the theme. Keep it.'])
+
+  expect(prompts[0]).toContain('1. theme: "light"')
+  answer = false
+  const unanswered = await run($, 'explain 1')
+  expect(unanswered.text).toMatch(/^Claude could not answer here/)
+  expect(unanswered.context?.[0]).toContain('1. theme: "light"')
+})
+
 test('/settings-sync status says what the last sync did, and now syncs again', { options: FILE }, async ($, on) => {
   const { files, writes } = world(on, { [SHARED]: json({ theme: 'dark' }), [OWN]: json({}) })
   const clock = mock.clock(on, { now: 1_000_000 })
